@@ -1,0 +1,35 @@
+# Emacs/Vim
+*~
+.*.sw[a-z]
+*/#*#
+#*#
+*.org
+
+# Directories
+deps
+bin
+ebin
+log
+doc
+src/typer_ann
+
+# Exec
+rebar
+erldocs
+
+# EUnit
+.eunit
+
+# Dialyzer
+*.plt
+
+# Compiled
+*.o
+*.beam
+
+# Logging
+*.dump
+*.log
+
+# OSX
+.DS_Store

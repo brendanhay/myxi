@@ -1,0 +1,15 @@
+{application, amqpoxy, [
+    {description, "Description"},
+    {vsn, "0.1.0"},
+    {registered, []},
+    {applications, [
+        kernel,
+        stdlib,
+        lager
+    ]},
+    {mod, {
+     amqpoxy, []}
+    },
+    {env, [
+    ]}
+]}.
