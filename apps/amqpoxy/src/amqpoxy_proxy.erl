@@ -112,7 +112,7 @@ decode(Type, Payload, Protocol) ->
 %% @private
 forward(Match = {login, Login}, State = #state{client = Client}) ->
     Routed = State#state{backend = amqpoxy_router:match(Match)},
-    log(io_lib:fwrite("ROUTE <~s>", [Login]), Routed),
+    log(io_lib:fwrite("ROUTE {match, ~s}", [Login]), Routed),
     Replayed = replay(Routed),
     ok = inet:setopts(Client, [{active, true}]),
     proxy(Replayed).
@@ -139,11 +139,11 @@ proxy(State = #state{backend = Backend, client = Client}) ->
             ok = gen_tcp:send(Client, Data),
             proxy(State);
         {tcp_closed, Client} ->
-            log("CLOSED", State),
+            log("CLIENT", State),
             gen_tcp:close(Backend),
             ok;
         {tcp_closed, Backend}->
-            log("CLOSED", State),
+            log("SERVER", State),
             gen_tcp:close(Client),
             ok
     end.
@@ -160,5 +160,5 @@ log(Mode, #state{proxy = Proxy, client = Client, backend = Backend}) ->
 peername(Socket) ->
     case inet:peername(Socket) of
         {ok, {Ip, Port}} -> amqpoxy:format_ip(Ip, Port);
-        _Error           -> disconnected
+        _Error           -> 'DISCONNECT'
     end.
