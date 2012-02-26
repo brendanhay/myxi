@@ -20,14 +20,17 @@
 %%
 
 -spec start() -> ok.
+%% @doc
 start() -> start(?MODULE).
 
 -spec stop() -> ok.
+%% @doc
 stop() ->
-    application:stop(?MODULE),
+    ok = application:stop(?MODULE),
     init:stop().
 
 -spec config(atom()) -> any().
+%% @doc
 config(Key) ->
     application:load(?MODULE),
     case application:get_env(?MODULE, Key) of
@@ -35,15 +38,21 @@ config(Key) ->
         {ok, Value} -> Value
     end.
 
+-spec option(ip | atom(), options()) ->  inet:ip_address() | any().
+%% @doc
 option(ip, Opts) ->
     {ok, Ip} = inet:getaddr(lookup_option(ip, Opts), inet),
     Ip;
 option(Key, Opts) ->
     lookup_option(Key, Opts).
 
+-spec format_ip([proplists:property()]) -> string().
+%% @doc
 format_ip(Opts) ->
     format_ip(option(ip, Opts), option(port, Opts)).
 
+-spec format_ip(inet:ip_address(), inet:port_number()) -> string().
+%% @doc
 format_ip({A, B, C, D}, Port) ->
     Io = io_lib:fwrite("~p.~p.~p.~p:~p", [A, B, C, D, Port]),
     binary_to_list(iolist_to_binary(Io)).
@@ -55,7 +64,7 @@ format_ip({A, B, C, D}, Port) ->
 -spec start(normal, _) -> ignore | {error, _} | {ok, pid()}.
 %% @hidden
 start(normal, _Args) ->
-    ok = start_frontends(),
+    start_frontends(),
     amqpoxy_sup:start_link(config(backends)).
 
 -spec stop(_) -> ok.
@@ -84,14 +93,18 @@ ensure_started(App, {error, Reason}) ->
 %% Private
 %%
 
+-spec lookup_option(atom(), options()) -> any().
+%% @private
 lookup_option(Key, Opts) ->
     {Key, Value} = lists:keyfind(Key, 1, Opts),
     Value.
 
-start_frontends() ->
-    [frontend(Opts) || Opts <- config(frontends)],
-    ok.
+-spec start_frontends() -> [{ok, pid()}].
+%% @private
+start_frontends() -> [frontend(Opts) || Opts <- config(frontends)].
 
+-spec frontend(options()) -> {ok, pid()}.
+%% @private
 frontend(Opts) ->
     Tcp = [{ip, option(ip, Opts)}, {port, option(port, Opts)}],
     lager:info("LISTEN ~s", [format_ip(Tcp)]),

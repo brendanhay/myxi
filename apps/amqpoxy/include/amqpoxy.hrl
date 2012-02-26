@@ -3,6 +3,7 @@
 %%
 
 -type backend() :: any().
+-type options() :: [proplists:property()].
 
 %%
 %% Tests

@@ -54,7 +54,6 @@ PLT=./plt/R15B.plt
 
 WARNINGS=-Werror_handling \
   -Wrace_conditions \
-  -Wbehaviours \
   -Wunderspecs \
   -Wunmatched_returns
 
@@ -68,7 +67,8 @@ build-plt: all
 	  --apps $(APPS) $(DEPS)
 
 dialyzer: build
-	dialyzer ebin --plt $(PLT) $(WARNINGS)
+	dialyzer apps/*/ebin --plt $(PLT) $(WARNINGS) \
+	  | grep -v 'lager_not_running'
 
 xref:
 	$(REBAR) skip_deps=true xref

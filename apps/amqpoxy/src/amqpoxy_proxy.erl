@@ -1,33 +1,42 @@
+%% @doc
 -module(amqpoxy_proxy).
 -behaviour(cowboy_protocol).
 
 -include_lib("rabbit_common/include/rabbit_framing.hrl").
 
+%% API
+-export([start_link/4]).
+
 %% Callbacks
--export([start_link/4,
-         init/3]).
+-export([init/3]).
 
 -include("include/amqpoxy.hrl").
 
 -record(state, {listener    :: pid(),
                 client      :: inet:socket(),
-                backend     :: inet:socket(),
+                backend     :: undefined | inet:socket(),
                 proxy = ""  :: string(),
                 protocol    :: module(),
                 next        :: pos_integer(),
                 payload     :: undefined | {integer(), pos_integer()},
                 replay = [] :: [binary()]}).
 
+%% AMQP frame sizes
 -define(HANDSHAKE, 8).
 -define(HEADER, 7).
 -define(PAYLOAD(Len), Len + 1).
 
+%% TCP connection timeout
 -define(TIMEOUT, 6000).
+
+-type version() :: {0 | 8,0 | 9,0 | 1}.
 
 %%
 %% API
 %%
 
+-spec start_link(pid(), inet:socket(),
+                 cowboy_tcp_transport, options()) -> {ok, pid()}.
 %% @doc
 start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [Listener, Client, Opts]),
@@ -37,6 +46,7 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 %% Callbacks
 %%
 
+-spec init(pid(), inet:socket(), options()) -> ok | no_return().
 %% @private
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
@@ -49,6 +59,7 @@ init(Listener, Client, Opts) ->
 %% Private
 %%
 
+-spec handshake(#state{}) -> ok | no_return().
 %% @private
 handshake(State = #state{client = Client, next = Next, replay = Replay}) ->
     case gen_tcp:recv(Client, Next, ?TIMEOUT) of
@@ -56,6 +67,13 @@ handshake(State = #state{client = Client, next = Next, replay = Replay}) ->
         {error, _Reason} -> terminate(State)
     end.
 
+-spec terminate(#state{}) -> ok.
+%% @private
+terminate(State = #state{client = Client, backend = undefined}) ->
+    log(terminated, State),
+    ok = gen_tcp:close(Client).
+
+-spec handle(binary(), #state{}) -> ok.
 %% @private
 handle(<<"AMQP", 0, 0, 9, 1>>, State) ->
     connect({0, 9, 1}, rabbit_framing_amqp_0_9_1, State);
@@ -72,9 +90,10 @@ handle(Data, State = #state{protocol = Protocol, payload = {Type, Len}}) ->
     Login = decode(Type, Payload, Protocol),
     forward(amqpoxy_router:match({login, Login}), State).
 
+-spec connect(version(), rabbit_framing:protocol(), #state{}) -> ok.
 %% @private
 connect({Major, Minor, _Revision}, Protocol, State = #state{client = Client}) ->
-    message("NEGOTIATING", State),
+    log("NEGOTIATING", State),
     Start = #'connection.start'{version_major = Major,
                                 version_minor = Minor,
                                 %% TODO: rabbit_reader:server_properties(Protocol)
@@ -83,6 +102,7 @@ connect({Major, Minor, _Revision}, Protocol, State = #state{client = Client}) ->
     ok = rabbit_writer:internal_send_command(Client, 0, Start, Protocol),
     handshake(State#state{protocol = Protocol, next = ?HEADER}).
 
+-spec decode(pos_integer(), binary(), rabbit_framing:protocol()) -> binary().
 %% @private
 decode(Type, Payload, Protocol) ->
     {method, Method, Fields} =
@@ -93,59 +113,54 @@ decode(Type, Payload, Protocol) ->
     {value, {_, _, Login}} = lists:keysearch(<<"LOGIN">>, 1, Table),
     Login.
 
+-spec forward(inet:socket(), #state{}) -> ok.
 %% @private
 forward(Backend, State = #state{client = Client}) ->
     NewState = replay(State#state{backend = Backend}),
-    inet:setopts(Client, [{active, true}]),
-    message("ESTABLISHED", NewState),
+    ok = inet:setopts(Client, [{active, true}]),
+    log("ESTABLISHED", NewState),
     proxy(NewState).
 
+-spec replay(#state{}) -> #state{}.
 %% @private
 replay(State = #state{backend = Backend, replay = [Payload, Header, Handshake]}) ->
-    message("REPLAY", State),
+    log("REPLAY", State),
     ok = gen_tcp:send(Backend, Handshake),
     receive {tcp, Backend, _Data} -> ok end,
     ok = gen_tcp:send(Backend, [Header, Payload]),
     State#state{replay = []}.
 
+-spec proxy(#state{}) -> ok.
 %% @private
 proxy(State = #state{backend = Backend, client = Client}) ->
     receive
         {tcp, Client, Data} ->
-            gen_tcp:send(Backend, Data),
+            ok = gen_tcp:send(Backend, Data),
             proxy(State);
         {tcp, Backend, Data} ->
-            gen_tcp:send(Client, Data),
+            ok = gen_tcp:send(Client, Data),
             proxy(State);
         {tcp_closed, Client} ->
-            message("CLOSED", State),
+            log("CLOSED", State),
             gen_tcp:close(Backend),
             ok;
         {tcp_closed, Backend}->
-            message("CLOSED", State),
+            log("CLOSED", State),
             gen_tcp:close(Client),
             ok
     end.
 
--spec terminate(#state{}) -> ok.
+-spec log(atom() | string(), #state{}) -> ok | {error, lager_not_running}.
 %% @private
-terminate(State = #state{client = Client, backend = Backend}) ->
-    message(terminated, State),
-    gen_tcp:close(Client),
-    case Backend of
-        undefined -> ok;
-        _         -> gen_tcp:close(Backend)
-    end,
-    ok.
-
-message(Mode, #state{proxy = Proxy, client = Client, backend = undefined}) ->
+log(Mode, #state{proxy = Proxy, client = Client, backend = undefined}) ->
     lager:info("~s ~s -> ~s", [Mode, peername(Client), Proxy]);
-message(Mode, #state{proxy = Proxy, client = Client, backend = Backend}) ->
+log(Mode, #state{proxy = Proxy, client = Client, backend = Backend}) ->
     lager:info("~s ~s -> ~s -> ~s", [Mode, peername(Client), Proxy, peername(Backend)]).
 
+-spec peername(inet:socket()) -> string() | disconnected.
+%% @private
 peername(Socket) ->
     case inet:peername(Socket) of
         {ok, {Ip, Port}} -> amqpoxy:format_ip(Ip, Port);
         _Error           -> disconnected
     end.
-
