@@ -26,7 +26,5 @@ start_link(Backends) ->
 -spec init([backend()]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init(Backends) ->
-    Router = {amqpoxy_router,
-              {amqpoxy_router, start_link, [Backends]},
-              permanent, 6000, worker, [amqpoxy_router]},
-    {ok, {{one_for_all, 3, 20}, [Router]}}.
+    ok = amqpoxy_router:load(Backends),
+    {ok, {{one_for_all, 3, 20}, []}}.
