@@ -25,6 +25,7 @@
 start_link(Backends) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, Backends, []).
 
+-spec match(match()) -> inet:socket().
 match({login, Login}) when is_binary(Login) ->
     Mod = list_to_atom(binary_to_list(Login)),
     case mochiglobal:get(Mod) of
@@ -67,14 +68,20 @@ code_change(_OldVsn, State, _Extra) ->
 %% Private
 %%
 
+-spec load_backends([backend()]) -> ok.
+%% @private
 load_backends(Backends) ->
     [update_backend(Opts) || Opts <- Backends],
     ok.
 
+-spec updated_backend(options()) -> ok.
+%% @private
 update_backend(Opts) ->
     mochiglobal:put(amqpoxy:option(match, Opts),
                     {amqpoxy:option(ip, Opts), amqpoxy:option(port, Opts)}).
 
+-spec connect(inet:ip_address(), inet:port_number()) -> inet:socket().
+%% @private
 connect(Ip, Port) ->
     Tcp = [binary, {active, true}, {packet, raw}, {nodelay, true}],
     case gen_tcp:connect(Ip, Port, Tcp) of

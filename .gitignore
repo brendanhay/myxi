@@ -12,6 +12,7 @@ ebin
 log
 doc
 src/typer_ann
+rel/package
 
 # Exec
 rebar

@@ -26,7 +26,7 @@ start_link(Backends) ->
 -spec init([backend()]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init(Backends) ->
-    Balancer = {amqpoxy_balancer,
-                {amqpoxy_balancer, start_link, [Backends]},
-                permanent, 6000, worker, [amqpoxy_balancer]},
-    {ok, {{one_for_all, 3, 20}, [Balancer]}}.
+    Router = {amqpoxy_router,
+              {amqpoxy_router, start_link, [Backends]},
+              permanent, 6000, worker, [amqpoxy_router]},
+    {ok, {{one_for_all, 3, 20}, [Router]}}.

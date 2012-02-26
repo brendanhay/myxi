@@ -28,9 +28,6 @@
                 payload     :: {integer(), pos_integer()} | undefined,
                 replay = [] :: [binary()]}).
 
-%% AMQP protocol version
--type version() :: {0 | 8,0 | 9,0 | 1}.
-
 %%
 %% API
 %%
@@ -86,8 +83,7 @@ handle(<<Type:8, _:16, Len:32>>, State) ->
     handshake(State#state{stage = ?PAYLOAD(Len), payload = {Type, Len}});
 handle(Data, State = #state{protocol = Protocol, payload = {Type, Len}}) ->
     <<Payload:Len/binary, ?FRAME_END>> = Data,
-    Login = decode(Type, Payload, Protocol),
-    forward(amqpoxy_router:match({login, Login}), State).
+    forward(decode(Type, Payload, Protocol), State).
 
 -spec connect(version(), rabbit_framing:protocol(), #state{}) -> ok.
 %% @private
@@ -112,9 +108,10 @@ decode(Type, Payload, Protocol) ->
     {value, {_, _, Login}} = lists:keysearch(<<"LOGIN">>, 1, Table),
     Login.
 
--spec forward(inet:socket(), #state{}) -> ok.
+-spec forward({match, any()}, #state{}) -> ok.
 %% @private
-forward(Backend, State = #state{client = Client}) ->
+forward(Match, State = #state{client = Client}) ->
+    amqpoxy_router:match({login, Login})
     NewState = replay(State#state{backend = Backend}),
     ok = inet:setopts(Client, [{active, true}]),
     log("ESTABLISHED", NewState),
