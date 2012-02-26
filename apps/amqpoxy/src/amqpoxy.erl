@@ -104,11 +104,11 @@ lookup_option(Key, Opts) ->
 %% @private
 start_frontends() -> [frontend(Opts) || Opts <- config(frontends)].
 
--spec frontend(options()) -> {ok, pid()}.
+-spec frontend(frontend()) -> {ok, pid()}.
 %% @private
-frontend(Opts) ->
-    Tcp = [{ip, option(ip, Opts)}, {port, option(port, Opts)}],
+frontend(Frontend) ->
+    Tcp = [{ip, option(ip, Frontend)}, {port, option(port, Frontend)}],
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
-    cowboy:start_listener(amqp_listener, option(max, Opts),
+    cowboy:start_listener(amqp_listener, option(max, Frontend),
                           cowboy_tcp_transport, Tcp,
                           amqpoxy_proxy, Tcp).
