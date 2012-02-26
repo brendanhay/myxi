@@ -88,7 +88,7 @@ handle(Data, State = #state{protocol = Protocol, payload = {Type, Len}}) ->
 -spec connect(version(), rabbit_framing:protocol(), #state{}) -> ok.
 %% @private
 connect({Major, Minor, _Revision}, Protocol, State = #state{client = Client}) ->
-    log("NEGOTIATING", State),
+    log("CONNECT", State),
     Start = #'connection.start'{version_major = Major,
                                 version_minor = Minor,
                                 %% TODO: rabbit_reader:server_properties(Protocol)
@@ -111,11 +111,11 @@ decode(Type, Payload, Protocol) ->
 -spec forward(match(), #state{}) -> ok.
 %% @private
 forward(Match = {login, Login}, State = #state{client = Client}) ->
-    Backend = amqpoxy_router:match(Match),
-    NewState = replay(State#state{backend = Backend}),
+    Routed = State#state{backend = amqpoxy_router:match(Match)},
+    log(io_lib:fwrite("ROUTE <~s>", [Login]), Routed),
+    Replayed = replay(Routed),
     ok = inet:setopts(Client, [{active, true}]),
-    log(io_lib:fwrite("ESTABLISHED <~s>", [Login]), NewState),
-    proxy(NewState).
+    proxy(Replayed).
 
 -spec replay(#state{}) -> #state{}.
 %% @private
