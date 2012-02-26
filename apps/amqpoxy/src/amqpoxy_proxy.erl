@@ -125,7 +125,9 @@ forward(Backend, State = #state{client = Client}) ->
 replay(State = #state{backend = Backend, replay = [Payload, Header, Handshake]}) ->
     log("REPLAY", State),
     ok = gen_tcp:send(Backend, Handshake),
-    receive {tcp, Backend, _Data} -> ok end,
+    receive
+        {tcp, Backend, _Data} -> ok
+    end,
     ok = gen_tcp:send(Backend, [Header, Payload]),
     State#state{replay = []}.
 
