@@ -43,8 +43,8 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 %% Callbacks
 %%
 
--spec init(pid(), inet:socket(), options()) -> ok | no_return().
-%% @private
+-spec init(pid(), inet:socket(), options()) -> ok.
+%% @hidden
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
     handshake(#state{client = Client,
@@ -55,7 +55,7 @@ init(Listener, Client, Opts) ->
 %% Private
 %%
 
--spec handshake(#state{}) -> ok | no_return().
+-spec handshake(#state{}) -> ok.
 %% @private
 handshake(State = #state{client = Client, stage = Stage, replay = Replay}) ->
     case gen_tcp:recv(Client, Stage, ?TIMEOUT) of
