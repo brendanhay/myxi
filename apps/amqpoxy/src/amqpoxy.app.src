@@ -1,15 +1,27 @@
 {application, amqpoxy, [
-    {description, "Description"},
+    {description, "Poxy proxy"},
     {vsn, "0.1.0"},
     {registered, []},
     {applications, [
         kernel,
         stdlib,
-        lager
+        lager,
+        cowboy
     ]},
-    {mod, {
-     amqpoxy, []}
-    },
+    {mod, {amqpoxy, []}},
     {env, [
+        {frontends, [
+            [{ip,   "0.0.0.0"},
+             {port, 5673},
+             {max,  10}]
+        ]},
+        {backends, [
+            [{match, activities},
+             {ip,    "localhost"},
+             {port,  5672}],
+            [{match, guest},
+             {ip,    "localhost"},
+             {port,  5672}]
+        ]}
     ]}
 ]}.

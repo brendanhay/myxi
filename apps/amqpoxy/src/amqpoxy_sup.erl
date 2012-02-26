@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/1]).
 
 %% Callbacks
 -export([init/1]).
@@ -14,17 +14,18 @@
 %% API
 %%
 
--spec start_link() -> ignore | {error, _} | {ok, pid()}.
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+-spec start_link([backend()]) -> ignore | {error, _} | {ok, pid()}.
+%% @doc
+start_link(Backends) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, Backends).
 
 %%
 %% Callbacks
 %%
 
--spec init([]) -> supervisor().
-init([]) ->
-    Mod = amqpoxy_serv,
-    Spec = {Mod, {Mod, start_link, []}, permanent, 6000, worker, [Mod]},
-    Options = {one_for_all, 3, 20},
-    {ok, {Options, [Spec]}}.
+%% @hidden
+init(Backends) ->
+    Balancer = {amqpoxy_balancer,
+                {amqpoxy_balancer, start_link, [Backends]},
+                permanent, 6000, worker, [amqpoxy_balancer]},
+    {ok, {{one_for_all, 3, 20}, [Balancer]}}.

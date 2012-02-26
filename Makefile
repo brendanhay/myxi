@@ -41,7 +41,7 @@ console: package
 	rel/package/bin/amqpoxy console
 
 boot: build
-	$(ERL) -s rist
+	$(ERL) -s amqpoxy
 
 noboot: build
 	$(ERL)
