@@ -114,7 +114,7 @@ forward(Match = {login, Login}, State = #state{client = Client}) ->
     Backend = amqpoxy_router:match(Match),
     NewState = replay(State#state{backend = Backend}),
     ok = inet:setopts(Client, [{active, true}]),
-    log(io_lib:fwrite("ESTABLISHED ~s", [Login]), NewState),
+    log(io_lib:fwrite("ESTABLISHED <~s>", [Login]), NewState),
     proxy(NewState).
 
 -spec replay(#state{}) -> #state{}.
