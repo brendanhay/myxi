@@ -1,3 +1,4 @@
+%% @doc
 -module(amqpoxy).
 -behaviour(application).
 

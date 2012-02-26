@@ -1,5 +1,5 @@
+%% @doc
 -module(amqpoxy_sup).
-
 -behaviour(supervisor).
 
 %% API
