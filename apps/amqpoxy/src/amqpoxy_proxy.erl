@@ -12,15 +12,6 @@
 
 -include("include/amqpoxy.hrl").
 
--record(state, {listener    :: pid(),
-                client      :: inet:socket(),
-                backend     :: undefined | inet:socket(),
-                proxy = ""  :: string(),
-                protocol    :: module(),
-                next        :: pos_integer(),
-                payload     :: undefined | {integer(), pos_integer()},
-                replay = [] :: [binary()]}).
-
 %% AMQP frame sizes
 -define(HANDSHAKE, 8).
 -define(HEADER, 7).
@@ -28,6 +19,14 @@
 
 %% TCP connection timeout
 -define(TIMEOUT, 6000).
+
+-record(state, {client      :: inet:socket(),
+                backend     :: inet:socket() | undefined,
+                proxy  = "" :: string(),
+                protocol    :: module() | undefined,
+                stage       :: pos_integer(),
+                payload     :: {integer(), pos_integer()} | undefined,
+                replay = [] :: [binary()]}).
 
 %% AMQP protocol version
 -type version() :: {0 | 8,0 | 9,0 | 1}.
@@ -51,10 +50,9 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 %% @private
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
-    handshake(#state{proxy    = amqpoxy:format_ip(Opts),
-                     listener = Listener,
-                     client   = Client,
-                     next     = ?HANDSHAKE}).
+    handshake(#state{client = Client,
+                     proxy  = amqpoxy:format_ip(Opts),
+                     stage  = ?HANDSHAKE}).
 
 %%
 %% Private
@@ -62,8 +60,8 @@ init(Listener, Client, Opts) ->
 
 -spec handshake(#state{}) -> ok | no_return().
 %% @private
-handshake(State = #state{client = Client, next = Next, replay = Replay}) ->
-    case gen_tcp:recv(Client, Next, ?TIMEOUT) of
+handshake(State = #state{client = Client, stage = Stage, replay = Replay}) ->
+    case gen_tcp:recv(Client, Stage, ?TIMEOUT) of
         {ok, Data}       -> handle(Data, State#state{replay = [Data|Replay]});
         {error, _Reason} -> terminate(State)
     end.
@@ -85,7 +83,7 @@ handle(<<"AMQP", 1, 1, 8, 0>>, State) ->
 handle(<<"AMQP", 1, 1, 9, 1>>, State) ->
     connect({8, 0, 0}, rabbit_framing_amqp_0_8, State);
 handle(<<Type:8, _:16, Len:32>>, State) ->
-    handshake(State#state{next = ?PAYLOAD(Len), payload = {Type, Len}});
+    handshake(State#state{stage = ?PAYLOAD(Len), payload = {Type, Len}});
 handle(Data, State = #state{protocol = Protocol, payload = {Type, Len}}) ->
     <<Payload:Len/binary, ?FRAME_END>> = Data,
     Login = decode(Type, Payload, Protocol),
@@ -101,7 +99,7 @@ connect({Major, Minor, _Revision}, Protocol, State = #state{client = Client}) ->
                                 server_properties = [],
                                 locales = <<"en_US">>},
     ok = rabbit_writer:internal_send_command(Client, 0, Start, Protocol),
-    handshake(State#state{protocol = Protocol, next = ?HEADER}).
+    handshake(State#state{protocol = Protocol, stage = ?HEADER}).
 
 -spec decode(pos_integer(), binary(), rabbit_framing:protocol()) -> binary().
 %% @private
