@@ -97,7 +97,7 @@ connect({Major, Minor, _Revision}, Protocol, State = #state{client = Client}) ->
     ok = rabbit_writer:internal_send_command(Client, 0, Start, Protocol),
     handshake(State#state{protocol = Protocol, stage = ?HEADER}).
 
--spec decode(pos_integer(), binary(), rabbit_framing:protocol()) -> binary().
+-spec decode(pos_integer(), binary(), rabbit_framing:protocol()) -> match().
 %% @private
 decode(Type, Payload, Protocol) ->
     {method, Method, Fields} =
@@ -106,15 +106,15 @@ decode(Type, Payload, Protocol) ->
         Protocol:decode_method_fields(Method, Fields),
     Table = rabbit_binary_parser:parse_table(Response),
     {value, {_, _, Login}} = lists:keysearch(<<"LOGIN">>, 1, Table),
-    Login.
+    {login, Login}.
 
--spec forward({match, any()}, #state{}) -> ok.
+-spec forward(match(), #state{}) -> ok.
 %% @private
-forward(Match, State = #state{client = Client}) ->
-    amqpoxy_router:match({login, Login})
+forward(Match = {login, Login}, State = #state{client = Client}) ->
+    Backend = amqpoxy_router:match(Match),
     NewState = replay(State#state{backend = Backend}),
     ok = inet:setopts(Client, [{active, true}]),
-    log("ESTABLISHED", NewState),
+    log(io_lib:fwrite("ESTABLISHED ~s", [Login]), NewState),
     proxy(NewState).
 
 -spec replay(#state{}) -> #state{}.

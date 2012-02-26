@@ -83,7 +83,7 @@ load_backends(Backends) ->
     [update_backend(Opts) || Opts <- Backends],
     ok.
 
--spec updated_backend(options()) -> ok.
+-spec update_backend(options()) -> ok.
 %% @private
 update_backend(Opts) ->
     mochiglobal:put(amqpoxy:option(match, Opts),
