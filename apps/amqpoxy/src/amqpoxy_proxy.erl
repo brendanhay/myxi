@@ -29,6 +29,7 @@
 %% TCP connection timeout
 -define(TIMEOUT, 6000).
 
+%% AMQP protocol version
 -type version() :: {0 | 8,0 | 9,0 | 1}.
 
 %%
