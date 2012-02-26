@@ -110,9 +110,9 @@ decode(Type, Payload, Protocol) ->
 
 -spec forward(match(), #state{}) -> ok.
 %% @private
-forward(Match = {login, Login}, State = #state{client = Client}) ->
+forward(Match, State = #state{client = Client}) ->
     Routed = State#state{backend = amqpoxy_router:match(Match)},
-    log(io_lib:fwrite("ROUTE {match, ~s}", [Login]), Routed),
+    log(io_lib:fwrite("ROUTE ~p", [Match]), Routed),
     Replayed = replay(Routed),
     ok = inet:setopts(Client, [{active, true}]),
     proxy(Replayed).
