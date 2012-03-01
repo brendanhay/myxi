@@ -15,6 +15,7 @@
              {port, 5673},
              {max,  10}]
         ]},
+
         {backends, [
             [{match, activities},
              {ip,    "localhost"},
@@ -22,6 +23,11 @@
             [{match, guest},
              {ip,    "localhost"},
              {port,  5672}]
+        ]},
+
+        {clusters, [
+            [{users, [<<"soundcloud">>]},
+             {nodes, ['rabbit@localhost']}]
         ]}
     ]}
 ]}.
