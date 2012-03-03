@@ -41,11 +41,11 @@ backend(Opts) ->
 -spec connect(inet:ip_address(), inet:port_number()) -> inet:socket().
 %% @private
 connect(Ip, Port) ->
-    Tcp = [binary, {active, true}, {packet, raw}, {nodelay, true}],
+    Tcp = [binary, {active, false}, {packet, raw}],
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Socket} ->
             Socket;
         Error ->
-            lager:error("failed to connect to backend: ~p", [Error]),
+            lager:error("failed to connect to backend: ~p", [{Ip, Port}]),
             error({backend_unavailable, Ip, Port})
     end.

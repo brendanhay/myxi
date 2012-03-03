@@ -12,17 +12,17 @@
     {env, [
         {frontends, [
             [{ip,   "0.0.0.0"},
-             {port, 5673},
+             {port, 5672},
              {max,  10}]
         ]},
 
         {backends, [
             [{match, activities},
              {ip,    "localhost"},
-             {port,  5672}],
+             {port,  5673}],
             [{match, guest},
              {ip,    "localhost"},
-             {port,  5672}]
+             {port,  5673}]
         ]},
 
         {clusters, [

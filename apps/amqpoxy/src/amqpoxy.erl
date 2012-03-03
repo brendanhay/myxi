@@ -111,4 +111,4 @@ frontend(Frontend) ->
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Frontend),
                           cowboy_tcp_transport, Tcp,
-                          poxy_reader, Tcp).
+                          poxy_frontend, Tcp).

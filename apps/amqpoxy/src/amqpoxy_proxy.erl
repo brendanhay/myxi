@@ -83,7 +83,7 @@ handle(<<Type:8, _:16, Len:32>>, State) ->
     handshake(State#state{stage = ?PAYLOAD(Len), payload = {Type, Len}});
 handle(Data, State = #state{protocol = Protocol, payload = {Type, Len}}) ->
     <<Payload:Len/binary, ?FRAME_END>> = Data,
-    forward(decode(Type, Payload, Protocol), State).
+    forward({login, decode(Type, Payload, Protocol)}, State).
 
 -spec connect(version(), rabbit_framing:protocol(), #state{}) -> ok.
 %% @private
@@ -104,9 +104,7 @@ decode(Type, Payload, Protocol) ->
         rabbit_command_assembler:analyze_frame(Type, Payload, Protocol),
     #'connection.start_ok'{response = Response} =
         Protocol:decode_method_fields(Method, Fields),
-    Table = rabbit_binary_parser:parse_table(Response),
-    {value, {_, _, Login}} = lists:keysearch(<<"LOGIN">>, 1, Table),
-    {login, Login}.
+    poxy_auth:decode(Response).
 
 -spec forward(match(), #state{}) -> ok.
 %% @private
@@ -133,6 +131,8 @@ replay(State = #state{backend = Backend, replay = [Payload, Header, Handshake]})
 proxy(State = #state{backend = Backend, client = Client}) ->
     receive
         {tcp, Client, Data} ->
+            %% Snif client data 
+
             ok = gen_tcp:send(Backend, Data),
             proxy(State);
         {tcp, Backend, Data} ->

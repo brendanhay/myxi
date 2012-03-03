@@ -5,7 +5,7 @@
 %% API
 -export([handshake/1,
          header/1,
-         payload/3]).
+         payload/4]).
 
 -type(frame_type()   :: ?FRAME_METHOD | ?FRAME_HEADER | ?FRAME_BODY |
                         ?FRAME_OOB_METHOD | ?FRAME_OOB_HEADER | ?FRAME_OOB_BODY |
@@ -43,15 +43,15 @@ header(<<Type:8, Channel:16, Size:32>>) ->
 header(Data) ->
     refuse({bad_header, Data}).
 
-payload({Type, Channel, Size}, Data, Protocol) ->
+payload({Type, Channel, Size}, Data, Protocol, FrameState) ->
     case Data of
         <<Payload:Size/binary, ?FRAME_END>> ->
-            unframe(Type, Channel, Payload, Protocol);
+            frame(Type, Channel, Payload, Protocol, FrameState);
         _Unknown ->
             throw({bad_payload, Type, Channel, Size, Data})
     end;
-payload(Info, Data, _Protocol) ->
-    refuse({bad_payload, Info, Data}).
+payload(Info, Data, _Protocol, FrameState) ->
+    refuse({bad_payload, Info, Data, FrameState}).
 
 %%
 %% Private
@@ -86,15 +86,37 @@ capabilities(_) ->
 -spec refuse(any()) -> result().
 refuse(Error) -> {refuse, <<"AMQP", 0, 0, 9, 1>>, Error}.
 
--spec unframe(frame_type(), non_neg_integer(), binary(),
-            rabbit_framing:protocol()) -> result().
-%% @doc Channel > 0 indicates a successfully established connection
-unframe(Type, _Channel, Payload, Protocol) ->
+frame(Type, 0, Payload, Protocol, _FrameState) ->
     case rabbit_command_assembler:analyze_frame(Type, Payload, Protocol) of
         {method, Method, Fields} ->
             {method, Protocol:decode_method_fields(Method, Fields)};
+        heartbeat ->
+            throw(heartbeat_not_supported);
         error ->
             throw({unknown_frame, 0, Type, Payload});
-        Other ->
-            throw({unexpected_frame, Other})
+        Unknown ->
+            throw({unknown_frame, 0, Type, Payload, Unknown})
+    end;
+frame(Type, Chan, Payload, Protocol, FrameState) ->
+    case rabbit_command_assembler:analyze_frame(Type, Payload, Protocol) of
+        heartbeat ->
+            throw(heartbeat_not_supported);
+        error ->
+            throw({unknown_frame, Chan, Type, Payload});
+        {method, Method, <<0>>} ->
+            {method, Protocol:decode_method_fields(Method, <<0>>)};
+        Frame ->
+            channel_frame(Frame, FrameState)
+    end.
+
+channel_frame(Frame, FrameState) ->
+    case rabbit_command_assembler:process(Frame, FrameState) of
+        {ok, NewFrameState} ->
+            {state, NewFrameState};
+        {ok, Method, NewFrameState} ->
+            {method, Method, NewFrameState};
+        {ok, Method, Content, NewFrameState} ->
+            {method, Method, Content, NewFrameState};
+        {error, Reason} ->
+            throw({channel_frame, Reason})
     end.
