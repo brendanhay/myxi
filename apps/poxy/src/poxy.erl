@@ -7,6 +7,7 @@
          stop/0,
          config/1,
          option/2,
+         peername/1,
          format_ip/1,
          format_ip/2]).
 
@@ -46,6 +47,14 @@ option(ip, Opts) ->
     Ip;
 option(Key, Opts) ->
     lookup_option(Key, Opts).
+
+-spec peername(inet:socket()) -> string().
+%% @doc
+peername(Sock) ->
+    case inet:peername(Sock) of
+        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
+        _Error           -> "DISCONN"
+    end.
 
 -spec format_ip([proplists:property()]) -> string().
 %% @doc

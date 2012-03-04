@@ -11,6 +11,8 @@
 -include_lib("rabbit_common/include/rabbit_framing.hrl").
 -include("include/poxy.hrl").
 
+-type state() :: {client(), server()}.
+
 %%
 %% API
 %%
@@ -32,10 +34,12 @@ start_link(Client, User, Replay) ->
 
 -spec init(pid(), client(), user(), replay()) -> no_return().
 init(Frontend, Client, User, Replay) ->
-    Server = match({login, User}),
+    State = {Client, Server = match({login, User})},
+    log("CONN", State),
     ok = replay(Server, Replay),
+    log("REPLAY", State),
     proc_lib:init_ack(Frontend, {ok, self(), Server}),
-    loop(Client, Server).
+    loop(State).
 
 %%
 %% Private
@@ -61,33 +65,46 @@ backend(Opts) ->
 -spec connect(inet:ip_address(), inet:port_number()) -> server().
 %% @private
 connect(Ip, Port) ->
-    lager:info("BACKEND-CONN"),
     Tcp = [binary, {active, false}, {packet, raw}],
     case gen_tcp:connect(Ip, Port, Tcp) of
-        {ok, Socket} -> Socket;
-        Error        -> error({backend_unavailable, Ip, Port})
+        {ok, Socket} ->
+            Socket;
+        Error ->
+            lager:error("BACKEND-ERR", Error),
+            throw({backend_unavailable, Ip, Port, Error})
     end.
 
 -spec replay(server(), replay()) -> ok.
 %% @private
 replay(Server, [Payload, Header, Handshake]) ->
-    lager:info("BACKEND-REPLAY"),
     ok = gen_tcp:send(Server, Handshake),
     ok = case gen_tcp:recv(Server, 0) of
              {ok, _Data} -> ok
          end,
     gen_tcp:send(Server, [Header, Payload]).
 
--spec loop(client(), server()) -> no_return().
+-spec loop(state()) -> no_return().
 %% @private
-loop(Client, Server) ->
+loop(State = {Client, Server}) ->
     ok = case gen_tcp:recv(Server, 0) of
              {ok, Data} ->
-                 lager:info("BACKEND-RECV"),
+                 log("RECV", State),
                  gen_tcp:send(Client, Data);
              {error, closed} ->
+                 log("CLOSED", State),
                  exit(normal);
              Error ->
-                 exit({backend_error, Error})
+                 lager:error("BACKEND-ERR", [Error]),
+                 throw({backend_error, Error})
          end,
-    loop(Client, Server).
+    loop(State).
+
+%%
+%% Logging
+%%
+
+-spec log(string() | atom(), state()) -> ok.
+%% @private
+log(Mode, {Client, Server}) ->
+    lager:info("BACKEND-~s ~s -> ~p -> ~s",
+               [Mode, poxy:peername(Server), self(), poxy:peername(Client)]).

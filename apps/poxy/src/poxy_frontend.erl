@@ -37,7 +37,6 @@
 
 -record(s, {client                :: inet:socket(),
             server                :: inet:socket(),
-            listener = ""         :: string(),
             protocol              :: protocol() | undefined,
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
@@ -67,7 +66,7 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
     ok = inet:setopts(Client, [{active, false}]),
-    advance(#s{client = Client, listener = poxy:format_ip(Opts)}, handshake).
+    advance(#s{client = Client}, handshake).
 
 %%
 %% Receive
@@ -96,9 +95,10 @@ update_replay(Data, State = #s{replay = Replay}) ->
 recv(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
     case gen_tcp:recv(Client, 0) of
         {ok, Data} ->
-            read(State#s{buf = [Data|Buf],
+            log("FRONTEND-RECV", State),
+            read(State#s{buf     = [Data|Buf],
                          buf_len = BufLen + size(Data),
-                         recv = false});
+                         recv    = false});
         {error, closed} ->
             terminate(State);
         Error ->
@@ -140,18 +140,12 @@ forward(undefined, _Data) ->
 
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, #s{listener = Listener, client = Client, server = undefined}) ->
-    lager:info("~s ~s -> ~s", [Mode, peername(Client), Listener]);
-log(Mode, #s{listener = Listener, client = Client, server = Server}) ->
-    lager:info("~s ~s -> ~s -> ~s", [Mode, peername(Client), Listener, peername(Server)]).
-
--spec peername(client()) -> string().
-%% @private
-peername(Client) ->
-    case inet:peername(Client) of
-        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
-        _Error           -> "DISCONNECT"
-    end.
+log(Mode, #s{client = Client, server = undefined}) ->
+    lager:info("~s ~s -> ~p",
+               [Mode, poxy:peername(Client), self()]);
+log(Mode, #s{client = Client, server = Server}) ->
+    lager:info("~s ~s -> ~p -> ~s",
+               [Mode, poxy:peername(Client), self(), poxy:peername(Server)]).
 
 %%
 %% Parsing
@@ -260,12 +254,13 @@ capabilities(_) ->
 %% @private
 refuse(Error, State = #s{client = Client}) ->
     catch reply(Client, <<"AMQP", 0, 0, 9, 1>>),
-    lager:error("ERROR ~p", [Error]),
+    lager:error("FRONTEND-ERR ~p", [Error]),
     terminate(State).
 
 -spec terminate(#s{}) -> no_return().
 %% @private
-terminate(#s{server = Server, client = Client}) ->
+terminate(State = #s{server = Server, client = Client}) ->
+    log("FRONTEND-CLOSED", State),
     catch forward(Server, <<"AMQP", 0, 0, 9, 1>>),
     catch gen_tcp:close(Server),
     catch gen_tcp:close(Client),
