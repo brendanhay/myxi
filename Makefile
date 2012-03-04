@@ -33,15 +33,15 @@ doc:
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/amqpoxy/ebin $(DEPS) -sname amqpoxy
+ERL=exec erl -pa apps/poxy/ebin $(DEPS) -sname poxy
 
 .PHONY: boot noboot
 
 console: package
-	rel/package/bin/amqpoxy console
+	rel/package/bin/poxy console
 
 boot: build
-	$(ERL) -s amqpoxy
+	$(ERL) -s poxy
 
 noboot: build
 	$(ERL)
@@ -74,4 +74,4 @@ xref:
 	$(REBAR) skip_deps=true xref
 
 typer: build
-	typer --plt $(PLT) -I deps/ apps/amqpoxy/src/
+	typer --annotate --plt $(PLT) -I deps/ -I apps/poxy/ -r apps/ 

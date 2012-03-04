@@ -1,4 +1,4 @@
-{application, amqpoxy, [
+{application, poxy, [
     {description, "Poxy proxy"},
     {vsn, "0.1.0"},
     {registered, []},
@@ -8,7 +8,7 @@
         lager,
         cowboy
     ]},
-    {mod, {amqpoxy, []}},
+    {mod, {poxy, []}},
     {env, [
         {frontends, [
             [{ip,   "0.0.0.0"},

@@ -8,6 +8,7 @@
 %% Callbacks
 -export([init/3]).
 
+-include_lib("rabbit_common/include/rabbit.hrl").
 -include_lib("rabbit_common/include/rabbit_framing.hrl").
 -include("include/poxy.hrl").
 
@@ -15,25 +16,34 @@
 -define(HEADER, 7).
 -define(PAYLOAD(Len), Len + 1).
 
--type state()     :: handshake | header | payload.
--type protocol()  :: rabbit_framing:protocol().
--type method()    :: rabbit_framing:amqp_method_record().
--type class_id()  :: rabbit_framing:amqp_class_id().
--type body_size() :: non_neg_integer().
--type framing()   ::
-        {method, protocol()} |
-        {content_header, method(), class_id(), protocol()} |
-        {content_body,   method(), body_size(), class_id(), protocol()}.
+-type frame_step()  :: handshake | header | payload.
 
--record(s, {client                :: inet:clientet(),
-            server                :: inet:clientet(),
+-type frame_type()  :: ?FRAME_METHOD | ?FRAME_HEADER | ?FRAME_BODY |
+                       ?FRAME_OOB_METHOD | ?FRAME_OOB_HEADER | ?FRAME_OOB_BODY |
+                       ?FRAME_TRACE | ?FRAME_HEARTBEAT.
+
+-type class_id()    :: rabbit_framing:amqp_class_id().
+
+-type frame_state() :: {method, protocol()} |
+                       {content_header, method(), class_id(), protocol()} |
+                       {content_body,   method(), non_neg_integer(), class_id(), protocol()}.
+
+-type unframed()    :: {method, method()} |
+                       {state, frame_state()} |
+                       {method, method(), frame_state()} |
+                       {method, method(), #content{}, frame_state()}.
+
+-type buffer()      :: [binary()].
+
+-record(s, {client                :: inet:socket(),
+            server                :: inet:socket(),
             listener = ""         :: string(),
             protocol              :: protocol() | undefined,
-            step = handshake      :: state(),
-            framing               :: framing() | undefined,
+            step = handshake      :: frame_step(),
+            framing               :: frame_state() | undefined,
             payload_info          :: {integer(), integer(), integer()} | undefined,
-            replay = []           :: iolist(),
-            buf = []              :: iolist(),
+            replay = []           :: replay(),
+            buf = []              :: buffer(),
             buf_len = 0           :: non_neg_integer(),
             recv = false          :: true | false,
             recv_len = ?HANDSHAKE :: non_neg_integer()}).
@@ -42,8 +52,7 @@
 %% API
 %%
 
--spec start_link(pid(), inet:clientet(),
-                 cowboy_tcp_transport, options()) -> {ok, pid()}.
+-spec start_link(pid(), client(), cowboy_tcp_transport, options()) -> {ok, pid()}.
 %% @doc
 start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
     Pid = spawn_link(?MODULE, init, [Listener, Client, Opts]),
@@ -53,44 +62,51 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 %% Callbacks
 %%
 
+-spec init(pid(), client(), options()) -> no_return().
 %% @hidden
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
-    ok = rabbit_net:setopts(Client, [{active, once}]),
+    ok = inet:setopts(Client, [{active, false}]),
     advance(#s{client = Client, listener = poxy:format_ip(Opts)}, handshake).
 
 %%
-%% Private
+%% Receive
 %%
 
+-spec read(#s{}) -> no_return().
+%% @private
 read(State = #s{recv = true}) ->
     recv(State);
 read(State = #s{recv_len = RecvLen, buf_len = BufLen}) when BufLen < RecvLen ->
     recv(State#s{recv = true});
-
 read(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
     {Data, Rest} = split_buffer(Buf, RecvLen),
     NewState = update_replay(Data, State),
     input(Data, NewState#s{buf = [Rest], buf_len = BufLen - RecvLen}).
 
+-spec update_replay(binary(), #s{}) -> #s{}.
+%% @private
 update_replay(_Data, State) when is_port(State#s.server) ->
     State#s{replay = []};
 update_replay(Data, State = #s{replay = Replay}) ->
     State#s{replay = [Data|Replay]}.
 
+-spec recv(#s{}) -> ok | no_return().
+%% @private
 recv(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
-    ok = rabbit_net:setopts(Client, [{active, once}]),
-    case rabbit_net:recv(Client) of
-        {data, Data} ->
+    case gen_tcp:recv(Client, 0) of
+        {ok, Data} ->
             read(State#s{buf = [Data|Buf],
                          buf_len = BufLen + size(Data),
                          recv = false});
-        closed ->
+        {error, closed} ->
             terminate(State);
-        {error, Reason} ->
-            throw({inet_error, Reason})
+        Error ->
+            throw({tcp_error, Error})
     end.
 
+-spec split_buffer(buffer(), pos_integer()) -> {binary(), binary()}.
+%% @private
 split_buffer(Buf, RecvLen) ->
     split_binary(case Buf of
                      [B]    -> B;
@@ -98,35 +114,51 @@ split_buffer(Buf, RecvLen) ->
                  end,
                  RecvLen).
 
-reply(Client, Data) ->
-    ok = rabbit_net:send(Client, Data).
+%%
+%% Sockets
+%%
 
+-spec reply(client(), binary()) -> ok.
+%% @private
+reply(Client, Data) -> gen_tcp:send(Client, Data).
+
+-spec reply(client(), method(), protocol()) -> ok.
+%% @private
 reply(Client, Method, Protocol) ->
-    ok = rabbit_writer:internal_send_command(Client, 0, Method, Protocol).
+    rabbit_writer:internal_send_command(Client, 0, Method, Protocol).
 
+-spec forward(server() | undefined, binary()) -> ok.
+%% @private
 forward(Server, Data) when is_port(Server) ->
     gen_tcp:send(Server, Data);
 forward(undefined, _Data) ->
     ok.
 
+%%
+%% Logging
+%%
+
+-spec log(string() | atom(), #s{}) -> ok.
 %% @private
 log(Mode, #s{listener = Listener, client = Client, server = undefined}) ->
     lager:info("~s ~s -> ~s", [Mode, peername(Client), Listener]);
 log(Mode, #s{listener = Listener, client = Client, server = Server}) ->
     lager:info("~s ~s -> ~s -> ~s", [Mode, peername(Client), Listener, peername(Server)]).
 
--spec peername(inet:clientet()) -> string() | disconnected.
+-spec peername(client()) -> string().
 %% @private
-peername(Clientet) ->
-    case inet:peername(Clientet) of
+peername(Client) ->
+    case inet:peername(Client) of
         {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
-        _Error           -> 'DISCONNECT'
+        _Error           -> "DISCONNECT"
     end.
 
 %%
 %% Parsing
 %%
 
+-spec input(binary(), #s{}) -> no_return().
+%% @private
 input(Data, State = #s{step = handshake}) ->
     {Version, Protocol} =
         case Data of
@@ -176,6 +208,8 @@ input(Data, State = #s{server = Server, step = payload, payload_info = {Type, Ch
     ok = forward(Server, Data),
     advance(NewState, header).
 
+-spec connection_start(version(), protocol(), #s{}) -> #s{}.
+%% @private
 connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
     log("START", State),
     Start = #'connection.start'{version_major     = Major,
@@ -185,12 +219,16 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
     ok = reply(Client, Start, Protocol),
     State#s{protocol = Protocol, framing = {method, Protocol}}.
 
+-spec connection_start_ok(binary(), #s{}) -> #s{}.
+%% @private
 connection_start_ok(Response, State = #s{client = Client, replay = Replay}) ->
     log("START-OK", State),
-    User = poxy_auth:decode(Response),
+    User = poxy_auth:user(Response, State#s.protocol),
     {ok, _Pid, Server} = poxy_backend:start_link(Client, User, Replay),
     State#s{server = Server, replay = []}.
 
+-spec advance(#s{}, frame_step()) -> no_return().
+%% @private
 advance(State, handshake) ->
     read(State#s{step = handshake, recv_len = ?HANDSHAKE});
 advance(State, header) ->
@@ -199,6 +237,7 @@ advance(State = #s{payload_info = {_Type, _Channel, Size}}, payload) ->
     read(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
+%% @private
 properties(Protocol) ->
     [{<<"capabilities">>, table,   capabilities(Protocol)},
      {<<"product">>,      longstr, <<"Poxy">>},
@@ -208,6 +247,7 @@ properties(Protocol) ->
      {<<"information">>,  longstr, <<"">>}].
 
 -spec capabilities(rabbit_framing:protocol()) -> [{binary(), bool, true}].
+%% @private
 capabilities(rabbit_framing_amqp_0_9_1) ->
     [{<<"publisher_confirms">>,         bool, true},
      {<<"exchange_exchange_bindings">>, bool, true},
@@ -216,17 +256,24 @@ capabilities(rabbit_framing_amqp_0_9_1) ->
 capabilities(_) ->
     [].
 
+-spec refuse(any(), #s{}) -> no_return().
+%% @private
 refuse(Error, State = #s{client = Client}) ->
     catch reply(Client, <<"AMQP", 0, 0, 9, 1>>),
     lager:error("ERROR ~p", [Error]),
     terminate(State).
 
+-spec terminate(#s{}) -> no_return().
+%% @private
 terminate(#s{server = Server, client = Client}) ->
     catch forward(Server, <<"AMQP", 0, 0, 9, 1>>),
     catch gen_tcp:close(Server),
     catch gen_tcp:close(Client),
     exit(normal).
 
+-spec unframe(frame_type(), non_neg_integer(), binary(), protocol(),
+              frame_state()) -> unframed().
+%% @private
 unframe(Type, 0, Payload, Protocol, _FrameState) ->
     case rabbit_command_assembler:analyze_frame(Type, Payload, Protocol) of
         {method, Method, Fields} ->
@@ -251,8 +298,10 @@ unframe(Type, Chan, Payload, Protocol, FrameState) ->
             channel_unframe(Frame, FrameState)
     end.
 
-channel_unframe(Frame, FrameState) ->
-    case rabbit_command_assembler:process(Frame, FrameState) of
+-spec channel_unframe(any(), frame_state()) -> unframed().
+%% @private
+channel_unframe(Current, Previous) ->
+    case rabbit_command_assembler:process(Current, Previous) of
         {ok, NewFrameState} ->
             {state, NewFrameState};
         {ok, Method, NewFrameState} ->
