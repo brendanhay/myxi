@@ -1,5 +1,5 @@
 %% @doc
--module(amqpoxy).
+-module(poxy).
 -behaviour(application).
 
 %% API
@@ -14,7 +14,7 @@
 -export([start/2,
          stop/1]).
 
--include("include/amqpoxy.hrl").
+-include("include/poxy.hrl").
 
 %%
 %% API
@@ -66,7 +66,7 @@ format_ip({A, B, C, D}, Port) ->
 %% @hidden
 start(normal, _Args) ->
     start_frontends(),
-    amqpoxy_sup:start_link(config(backends)).
+    poxy_sup:start_link(config(backends)).
 
 -spec stop(_) -> ok.
 %% @hidden

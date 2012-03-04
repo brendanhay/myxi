@@ -5,7 +5,7 @@
 -export([listeners/0,
          indexes/0]).
 
--include("include/amqpoxy.hrl").
+-include("include/poxy.hrl").
 
 listeners() -> config(listeners).
 

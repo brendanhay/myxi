@@ -2,7 +2,8 @@
 -module(poxy_backend).
 
 %% API
--compile(export_all).
+-export([load/1,
+         start_link/3]).
 
 -include_lib("rabbit_common/include/rabbit_framing.hrl").
 
@@ -10,6 +11,13 @@
 %% API
 %%
 
+-spec load([backend()]) -> ok.
+%% @doc
+load(Backends) ->
+    [backend(Opts) || Opts <- Backends],
+    ok.
+
+%% @doc
 start_link(Client, User, Replay) ->
     proc_lib:start_link(?MODULE, init, [self(), Client, User, Replay]).
 
@@ -18,7 +26,7 @@ start_link(Client, User, Replay) ->
 %%
 
 init(Frontend, Client, User, Replay) ->
-    Server = amqpoxy_router:match({login, User}),
+    Server = poxy_router:match({login, User}),
     ok = replay(Server, Replay),
     proc_lib:init_ack(Frontend, {ok, self(), Server}),
     loop(Client, Server).
@@ -26,6 +34,23 @@ init(Frontend, Client, User, Replay) ->
 %%
 %% Private
 %%
+
+-spec match(match()) -> inet:socket().
+%% @private
+match({login, Login}) when is_binary(Login) ->
+    Mod = list_to_atom(binary_to_list(Login)),
+    case mochiglobal:get(Mod) of
+        {Ip, Port} -> connect(Ip, Port);
+        undefined  -> error({backend_notfound, Mod})
+    end;
+match(_Match) ->
+    error(match_not_supported).
+
+-spec backend(options()) -> ok.
+%% @private
+backend(Opts) ->
+    mochiglobal:put(poxy:option(match, Opts),
+                    {poxy:option(ip, Opts), amqpoxy:option(port, Opts)}).
 
 -spec connect(inet:ip_address(), inet:port_number()) -> inet:socket().
 %% @private
@@ -37,6 +62,7 @@ connect(Ip, Port) ->
         Error        -> error({backend_unavailable, Ip, Port})
     end.
 
+%% @private
 loop(Client, Server) ->
     ok = case gen_tcp:recv(Server, 0) of
              {ok, Data} ->
@@ -49,6 +75,7 @@ loop(Client, Server) ->
          end,
     loop(Client, Server).
 
+%% @private
 replay(Server, [Payload, Header, Handshake]) ->
     lager:info("BACKEND-REPLAY"),
     ok = gen_tcp:send(Server, Handshake),

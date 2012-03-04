@@ -1,5 +1,5 @@
 %% @doc
--module(amqpoxy_sup).
+-module(poxy_sup).
 -behaviour(supervisor).
 
 %% API
@@ -8,7 +8,7 @@
 %% Callbacks
 -export([init/1]).
 
--include("include/amqpoxy.hrl").
+-include("include/poxy.hrl").
 
 %%
 %% API
@@ -26,5 +26,5 @@ start_link(Backends) ->
 -spec init([backend()]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init(Backends) ->
-    ok = amqpoxy_router:load(Backends),
+    ok = poxy_backend:load(Backends),
     {ok, {{one_for_all, 3, 20}, []}}.

@@ -9,7 +9,7 @@
 -export([init/3]).
 
 -include_lib("rabbit_common/include/rabbit_framing.hrl").
--include("include/amqpoxy.hrl").
+-include("include/poxy.hrl").
 
 -define(HANDSHAKE, 8).
 -define(HEADER, 7).
@@ -57,7 +57,7 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
     ok = rabbit_net:setopts(Client, [{active, once}]),
-    advance(#s{client = Client, listener = amqpoxy:format_ip(Opts)}, handshake).
+    advance(#s{client = Client, listener = poxy:format_ip(Opts)}, handshake).
 
 %%
 %% Private
@@ -119,7 +119,7 @@ log(Mode, #s{listener = Listener, client = Client, server = Server}) ->
 %% @private
 peername(Clientet) ->
     case inet:peername(Clientet) of
-        {ok, {Ip, Port}} -> amqpoxy:format_ip(Ip, Port);
+        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
         _Error           -> 'DISCONNECT'
     end.
 
