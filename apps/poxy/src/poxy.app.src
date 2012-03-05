@@ -28,7 +28,7 @@
 
         {backends, [
             {soundcloud, [
-                {balance, poxy_round_robin},
+                {balance, poxy_roundrobin_balancer},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]
                 ]}

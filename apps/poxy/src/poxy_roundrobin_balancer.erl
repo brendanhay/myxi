@@ -1,5 +1,5 @@
 %% @doc
--module(poxy_round_robin).
+-module(poxy_roundrobin_balancer).
 -behaviour(poxy_balancer).
 
 %% Callbacks
