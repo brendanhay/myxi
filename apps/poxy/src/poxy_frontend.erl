@@ -116,14 +116,23 @@ split_buffer(Buf, RecvLen) ->
 %% Sockets
 %%
 
--spec reply(client(), binary()) -> ok.
+-spec reply(client(), binary()) -> ok | {error, _}.
 %% @private
-reply(Client, Data) -> gen_tcp:send(Client, Data).
+reply(Client, Data) ->
+    case poxy:socket_open(Client) of
+        true  -> gen_tcp:send(Client, Data);
+        false -> ok
+    end.
 
 -spec reply(client(), method(), protocol()) -> ok.
 %% @private
 reply(Client, Method, Protocol) ->
-    rabbit_writer:internal_send_command(Client, 0, Method, Protocol).
+    case poxy:socket_open(Client) of
+        true ->
+            rabbit_writer:internal_send_command(Client, 0, Method, Protocol);
+        false ->
+            ok
+    end.
 
 -spec forward(server() | undefined, binary()) -> ok.
 %% @private
@@ -254,8 +263,8 @@ capabilities(_) ->
 -spec refuse(any(), #s{}) -> no_return().
 %% @private
 refuse(Error, State = #s{client = Client}) ->
-    catch reply(Client, <<"AMQP", 0, 0, 9, 1>>),
     lager:error("FRONTEND-ERR ~p", [Error]),
+    reply(Client, <<"AMQP", 0, 0, 9, 1>>),
     terminate(State).
 
 -spec terminate(#s{}) -> no_return().

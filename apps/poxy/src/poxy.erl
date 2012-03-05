@@ -7,10 +7,11 @@
          stop/0,
          config/1,
          option/2,
-         peername/1,
          format_ip/1,
          format_ip/2,
-         format_addr/1]).
+         format_addr/1,
+         peername/1,
+         socket_open/1]).
 
 %% Callbacks
 -export([start/2,
@@ -49,14 +50,6 @@ option(ip, Opts) ->
 option(Key, Opts) ->
     lookup_option(Key, Opts).
 
--spec peername(inet:socket()) -> string().
-%% @doc
-peername(Sock) ->
-    case inet:peername(Sock) of
-        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
-        _Error           -> "DISCONN"
-    end.
-
 -spec format_ip([proplists:property()]) -> string().
 %% @doc
 format_ip(Opts) ->
@@ -73,6 +66,22 @@ format_ip({A, B, C, D}, Port) ->
 format_addr(Addr) ->
     {Ip, Port} = {option(ip, Addr), option(port, Addr)},
     format_ip(Ip, Port).
+
+-spec peername(inet:socket()) -> string().
+%% @doc
+peername(Sock) ->
+    case inet:peername(Sock) of
+        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
+        _Error           -> "DISCONN"
+    end.
+
+-spec socket_open(inet:socket()) -> true | false.
+%% @doc
+socket_open(Sock) ->
+    case erlang:port_info(Sock) of
+        undefined -> false;
+        _Other    -> true
+    end.
 
 %%
 %% Callbacks
