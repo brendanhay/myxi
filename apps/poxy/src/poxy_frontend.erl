@@ -8,8 +8,6 @@
 %% Callbacks
 -export([init/3]).
 
--include_lib("rabbit_common/include/rabbit.hrl").
--include_lib("rabbit_common/include/rabbit_framing.hrl").
 -include("include/poxy.hrl").
 
 -define(HANDSHAKE, 8).
@@ -38,6 +36,7 @@
 -record(s, {client                :: inet:socket(),
             server                :: inet:socket(),
             protocol              :: protocol() | undefined,
+            router                :: module(),
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
             payload_info          :: {integer(), integer(), integer()} | undefined,
@@ -66,19 +65,19 @@ start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
 init(Listener, Client, Opts) ->
     ok = cowboy:accept_ack(Listener),
     ok = inet:setopts(Client, [{active, false}]),
-    advance(#s{client = Client}, handshake).
+    advance(#s{client = Client, router = poxy_router:new(Opts)}, handshake).
 
 %%
 %% Receive
 %%
 
--spec read(#s{}) -> no_return().
+-spec loop(#s{}) -> no_return().
 %% @private
-read(State = #s{recv = true}) ->
-    recv(State);
-read(State = #s{recv_len = RecvLen, buf_len = BufLen}) when BufLen < RecvLen ->
-    recv(State#s{recv = true});
-read(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
+loop(State = #s{recv = true}) ->
+    read(State);
+loop(State = #s{recv_len = RecvLen, buf_len = BufLen}) when BufLen < RecvLen ->
+    read(State#s{recv = true});
+loop(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
     {Data, Rest} = split_buffer(Buf, RecvLen),
     NewState = update_replay(Data, State),
     input(Data, NewState#s{buf = [Rest], buf_len = BufLen - RecvLen}).
@@ -90,13 +89,12 @@ update_replay(_Data, State) when is_port(State#s.server) ->
 update_replay(Data, State = #s{replay = Replay}) ->
     State#s{replay = [Data|Replay]}.
 
--spec recv(#s{}) -> ok | no_return().
+-spec read(#s{}) -> ok | no_return().
 %% @private
-recv(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
+read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
     case gen_tcp:recv(Client, 0) of
         {ok, Data} ->
-            log("FRONTEND-RECV", State),
-            read(State#s{buf     = [Data|Buf],
+            loop(State#s{buf     = [Data|Buf],
                          buf_len = BufLen + size(Data),
                          recv    = false});
         {error, closed} ->
@@ -185,8 +183,8 @@ input(Data, State = #s{server = Server, step = payload, payload_info = {Type, Ch
         case Data of
             <<Payload:Size/binary, ?FRAME_END>> ->
                 case unframe(Type, Channel, Payload, Protocol, FrameState) of
-                    {method, #'connection.start_ok'{response = Response}} ->
-                        connection_start_ok(Response, State);
+                    {method, StartOk = #'connection.start_ok'{}} ->
+                        connection_start_ok(StartOk, State);
                     {method, _Method} ->
                         State;
                     {method, _Method, NewFrameState} ->
@@ -215,20 +213,23 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
 
 -spec connection_start_ok(binary(), #s{}) -> #s{}.
 %% @private
-connection_start_ok(Response, State = #s{client = Client, replay = Replay}) ->
+connection_start_ok(StartOk, State = #s{router   = Router,
+                                        client   = Client,
+                                        replay   = Replay,
+                                        protocol = Protocol}) ->
     log("START-OK", State),
-    User = poxy_auth:user(Response, State#s.protocol),
-    {ok, _Pid, Server} = poxy_backend:start_link(Client, User, Replay),
+    Balancer = poxy_router:route(Router, StartOk, Protocol),
+    Server = Balancer(Client, Replay),
     State#s{server = Server, replay = []}.
 
 -spec advance(#s{}, frame_step()) -> no_return().
 %% @private
 advance(State, handshake) ->
-    read(State#s{step = handshake, recv_len = ?HANDSHAKE});
+    loop(State#s{step = handshake, recv_len = ?HANDSHAKE});
 advance(State, header) ->
-    read(State#s{step = header, recv_len = ?HEADER});
+    loop(State#s{step = header, recv_len = ?HEADER});
 advance(State = #s{payload_info = {_Type, _Channel, Size}}, payload) ->
-    read(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
+    loop(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
 %% @private

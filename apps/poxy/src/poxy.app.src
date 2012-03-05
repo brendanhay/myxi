@@ -10,24 +10,29 @@
     ]},
     {mod, {poxy, []}},
     {env, [
+
+        {tcp, [
+            {keepalive, true}
+        ]},
+
         {frontends, [
-            [{ip,   "0.0.0.0"},
-             {port, 5672},
-             {max,  10}]
+            [{ip, "0.0.0.0"},
+             {port, 5673},
+             {max, 10},
+             {route, poxy_user_router, [
+                 [{user, <<"activities">>}, {backend, soundcloud}],
+                 [{user, <<"guest">>}, {backend, soundcloud}]
+             ]}]
         ]},
 
         {backends, [
-            [{match, activities},
-             {ip,    "localhost"},
-             {port,  5673}],
-            [{match, guest},
-             {ip,    "localhost"},
-             {port,  5673}]
-        ]},
-
-        {clusters, [
-            [{users, [<<"soundcloud">>]},
-             {nodes, ['rabbit@localhost']}]
+            {soundcloud, [
+                {balance, poxy_round_robin},
+                {nodes, [
+                    [{ip, "127.0.0.1"}, {port, 5672}]
+                ]}
+            ]}
         ]}
+
     ]}
 ]}.

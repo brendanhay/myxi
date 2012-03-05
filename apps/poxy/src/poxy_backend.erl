@@ -2,13 +2,11 @@
 -module(poxy_backend).
 
 %% API
--export([load/1,
-         start_link/3]).
+-export([start_link/3]).
 
 %% Callbacks
 -export([init/4]).
 
--include_lib("rabbit_common/include/rabbit_framing.hrl").
 -include("include/poxy.hrl").
 
 -type state() :: {client(), server()}.
@@ -17,25 +15,20 @@
 %% API
 %%
 
--spec load([backend()]) -> ok.
+-spec start_link(addr(), client(), replay()) -> {ok, pid(), server()}.
 %% @doc
-load(Backends) ->
-    [backend(Opts) || Opts <- Backends],
-    ok.
-
--spec start_link(client(), user(), replay()) -> {ok, pid(), server()}.
-%% @doc
-start_link(Client, User, Replay) ->
-    proc_lib:start_link(?MODULE, init, [self(), Client, User, Replay]).
+start_link(Addr, Client, Replay) ->
+    proc_lib:start_link(?MODULE, init, [self(), Addr, Client, Replay]).
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), client(), user(), replay()) -> no_return().
-init(Frontend, Client, User, Replay) ->
-    State = {Client, Server = match({login, User})},
-    log("CONN", State),
+-spec init(pid(), addr(), client(), replay()) -> no_return().
+init(Frontend, Addr, Client, Replay) ->
+    {Ip, Port} = {poxy:option(ip, Addr), poxy:option(port, Addr)},
+    Server = connect(Ip, Port),
+    log("CONN", State = {Client, Server}),
     ok = replay(Server, Replay),
     log("REPLAY", State),
     proc_lib:init_ack(Frontend, {ok, self(), Server}),
@@ -44,23 +37,6 @@ init(Frontend, Client, User, Replay) ->
 %%
 %% Private
 %%
-
--spec match(match()) -> server().
-%% @private
-match({login, Login}) when is_binary(Login) ->
-    Mod = list_to_atom(binary_to_list(Login)),
-    case mochiglobal:get(Mod) of
-        {Ip, Port} -> connect(Ip, Port);
-        undefined  -> error({backend_notfound, Mod})
-    end;
-match(_Match) ->
-    error(match_not_supported).
-
--spec backend(options()) -> ok.
-%% @private
-backend(Opts) ->
-    mochiglobal:put(poxy:option(match, Opts),
-                    {poxy:option(ip, Opts), poxy:option(port, Opts)}).
 
 -spec connect(inet:ip_address(), inet:port_number()) -> server().
 %% @private
@@ -88,7 +64,6 @@ replay(Server, [Payload, Header, Handshake]) ->
 loop(State = {Client, Server}) ->
     ok = case gen_tcp:recv(Server, 0) of
              {ok, Data} ->
-                 log("RECV", State),
                  gen_tcp:send(Client, Data);
              {error, closed} ->
                  log("CLOSED", State),

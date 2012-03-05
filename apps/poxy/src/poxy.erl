@@ -9,7 +9,8 @@
          option/2,
          peername/1,
          format_ip/1,
-         format_ip/2]).
+         format_ip/2,
+         format_addr/1]).
 
 %% Callbacks
 -export([start/2,
@@ -67,6 +68,12 @@ format_ip({A, B, C, D}, Port) ->
     Io = io_lib:fwrite("~p.~p.~p.~p:~p", [A, B, C, D, Port]),
     binary_to_list(iolist_to_binary(Io)).
 
+-spec format_addr(addr()) -> string().
+%% @doc
+format_addr(Addr) ->
+    {Ip, Port} = {option(ip, Addr), option(port, Addr)},
+    format_ip(Ip, Port).
+
 %%
 %% Callbacks
 %%
@@ -75,7 +82,7 @@ format_ip({A, B, C, D}, Port) ->
 %% @hidden
 start(normal, _Args) ->
     start_frontends(),
-    poxy_sup:start_link(config(backends)).
+    poxy_sup:start_link().
 
 -spec stop(_) -> ok.
 %% @hidden
@@ -120,4 +127,4 @@ frontend(Frontend) ->
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Frontend),
                           cowboy_tcp_transport, Tcp,
-                          poxy_frontend, Tcp).
+                          poxy_frontend, Frontend).

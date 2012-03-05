@@ -1,18 +1,30 @@
 %% @doc
--module(poxy_auth).
+-module(poxy_user_router, [Routes]).
+-behaviour(poxy_router).
 
--include_lib("amqp_client/include/amqp_client.hrl").
+%% Callbacks
+-export([select_balancer/2]).
+
 -include("include/poxy.hrl").
 
-%% API
--export([user/2]).
+%%
+%% Callbacks
+%%
+
+-spec select_balancer(#'connection.start_ok'{}, protocol()) -> atom().
+%% @doc
+select_balancer(#'connection.start_ok'{response = Response}, Protocol) ->
+    User = user(Response, Protocol),
+    [Name|_] = [B || [{user, U}, {backend, B}] <- Routes, U =:= User],
+    lager:info("ROUTE ~s to ~p", [User, Name]),
+    Name.
 
 %%
-%% API
+%% Private
 %%
 
 -spec user(binary(), protocol()) -> user().
-%% @doc
+%% @private
 user(Response, rabbit_framing_amqp_0_9_1) ->
     case extract(Response) of
         {ok, User, NewResponse} ->
@@ -29,10 +41,6 @@ user(Response, rabbit_framing_amqp_0_8) ->
         {value, {_, longstr, User}} -> User;
         Error                       -> error(Error)
     end.
-
-%%
-%% Private
-%%
 
 -spec extract(binary() | any()) -> {ok, binary(), binary()} | error.
 %% @private
