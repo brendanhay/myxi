@@ -37,9 +37,10 @@
             server                :: inet:socket(),
             protocol              :: protocol() | undefined,
             router                :: module(),
+            interceptors = []     :: [module()],
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
-            payload_info          :: {integer(), integer(), integer()} | undefined,
+            payload_info          :: {binary(), integer(), integer(), integer()} | undefined,
             replay = []           :: replay(),
             buf = []              :: buffer(),
             buf_len = 0           :: non_neg_integer(),
@@ -50,22 +51,25 @@
 %% API
 %%
 
--spec start_link(pid(), client(), cowboy_tcp_transport, options()) -> {ok, pid()}.
+-spec start_link(pid(), client(), cowboy_tcp_transport, frontend()) -> {ok, pid()}.
 %% @doc
-start_link(Listener, Client, cowboy_tcp_transport, Opts) ->
-    Pid = spawn_link(?MODULE, init, [Listener, Client, Opts]),
+start_link(Listener, Client, cowboy_tcp_transport, Frontend) ->
+    Pid = spawn_link(?MODULE, init, [Listener, Client, Frontend]),
     {ok, Pid}.
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), client(), options()) -> no_return().
+-spec init(pid(), client(), frontend()) -> no_return().
 %% @hidden
-init(Listener, Client, Opts) ->
+init(Listener, Client, Frontend) ->
     ok = cowboy:accept_ack(Listener),
     ok = inet:setopts(Client, [{active, false}]),
-    advance(#s{client = Client, router = poxy_router:new(Opts)}, handshake).
+    State = #s{client       = Client,
+               router       = poxy_router:new(Frontend),
+               interceptors = poxy:option(interceptors, Frontend)},
+    advance(State, handshake).
 
 %%
 %% Receive
@@ -141,6 +145,20 @@ forward(Server, Data) when is_port(Server) ->
 forward(undefined, _Data) ->
     ok.
 
+-spec forward(server(), non_neg_integer(), method(), protocol()) -> ok.
+%% @private
+forward(Server, Channel, Method, Protocol) ->
+    Frame = rabbit_binary_generator:build_simple_method_frame(Channel,
+                                                              Method,
+                                                              Protocol),
+    forward(Server, Frame).
+
+-spec forward_frame(binary(), #s{}) -> ok.
+%% @private
+forward_frame(Payload, #s{payload_info = {Header, _Type, _Channel, _Size},
+                       server       = Server}) ->
+    forward(Server, [Header, Payload]).
+
 %%
 %% Logging
 %%
@@ -178,36 +196,55 @@ input(Data, State = #s{step = handshake}) ->
         end,
     advance(connection_start(Version, Protocol, State), header);
 
-input(Data, State = #s{step = header, server = Server}) ->
+input(Data, State = #s{step = header}) ->
     case Data of
         <<Type:8, Channel:16, Size:32>> ->
-            ok = forward(Server, Data),
-            advance(State#s{payload_info = {Type, Channel, Size}}, payload);
+            advance(State#s{payload_info = {Data, Type, Channel, Size}}, payload);
         _Other ->
             refuse({bad_header, Data}, State)
     end;
 
-input(Data, State = #s{server = Server, step = payload, payload_info = {Type, Channel, Size}, protocol = Protocol, framing = FrameState}) ->
-    NewState =
+input(Data, State = #s{step         = payload,
+                       payload_info = {_Header, Type, Channel, Size},
+                       protocol     = Protocol,
+                       framing      = FrameState}) ->
+    {NewMethod, NewState} =
         case Data of
             <<Payload:Size/binary, ?FRAME_END>> ->
                 case unframe(Type, Channel, Payload, Protocol, FrameState) of
                     {method, StartOk = #'connection.start_ok'{}} ->
-                        connection_start_ok(StartOk, State);
-                    {method, _Method} ->
-                        State;
-                    {method, _Method, NewFrameState} ->
-                        State#s{framing = NewFrameState};
-                    {method, _Method, _Content, NewFrameState} ->
-                        State#s{framing = NewFrameState};
+                        {StartOk, connection_start_ok(StartOk, State)};
+                    {method, Method} ->
+                        {Method, State};
+                    {method, Method, NewFrameState} ->
+                        {Method, State#s{framing = NewFrameState}};
+                    {method, Method, _Content, NewFrameState} ->
+                        {Method, State#s{framing = NewFrameState}};
                     {state, NewFrameState} ->
-                        State#s{framing = NewFrameState}
+                        {none, State#s{framing = NewFrameState}}
                 end;
             _Unknown ->
                 refuse({bad_payload, Type, Channel, Size, Data}, State)
         end,
-    ok = forward(Server, Data),
+    ok = intercept(Data, Channel, NewMethod, State),
     advance(NewState, header).
+
+-spec intercept(binary(), non_neg_integer(), method(), #s{}) -> ok.
+%% @private
+intercept(Data, 0, _Method, State) ->
+    forward_frame(Data, State);
+intercept(Data, _Channel, none, State) ->
+    forward_frame(Data, State);
+intercept(Data, Channel, Method, State = #s{server       = Server,
+                                            protocol     = Protocol,
+                                            interceptors = Interceptors}) ->
+    case poxy_interceptor:thrush(Method, Interceptors) of
+        {modified, NewMethod} ->
+            lager:info("MODIFIED ~p", [NewMethod]),
+            forward(Server, Channel, NewMethod, Protocol);
+        {unmodified, Method} ->
+            forward_frame(Data, State)
+    end.
 
 -spec connection_start(version(), protocol(), #s{}) -> #s{}.
 %% @private
@@ -237,7 +274,7 @@ advance(State, handshake) ->
     loop(State#s{step = handshake, recv_len = ?HANDSHAKE});
 advance(State, header) ->
     loop(State#s{step = header, recv_len = ?HEADER});
-advance(State = #s{payload_info = {_Type, _Channel, Size}}, payload) ->
+advance(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload) ->
     loop(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
