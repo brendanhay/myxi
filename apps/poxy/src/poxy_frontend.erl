@@ -117,62 +117,6 @@ split_buffer(Buf, RecvLen) ->
                  RecvLen).
 
 %%
-%% Sockets
-%%
-
--spec reply(client(), binary()) -> ok | {error, _}.
-%% @private
-reply(Client, Data) ->
-    case poxy:socket_open(Client) of
-        true  -> gen_tcp:send(Client, Data);
-        false -> ok
-    end.
-
--spec reply(client(), method(), protocol()) -> ok.
-%% @private
-reply(Client, Method, Protocol) ->
-    case poxy:socket_open(Client) of
-        true ->
-            rabbit_writer:internal_send_command(Client, 0, Method, Protocol);
-        false ->
-            ok
-    end.
-
--spec forward(server() | undefined, binary()) -> ok.
-%% @private
-forward(Server, Data) when is_port(Server) ->
-    gen_tcp:send(Server, Data);
-forward(undefined, _Data) ->
-    ok.
-
--spec forward(server(), non_neg_integer(), method(), protocol()) -> ok.
-%% @private
-forward(Server, Channel, Method, Protocol) ->
-    Frame = rabbit_binary_generator:build_simple_method_frame(Channel,
-                                                              Method,
-                                                              Protocol),
-    forward(Server, Frame).
-
--spec forward_frame(binary(), #s{}) -> ok.
-%% @private
-forward_frame(Payload, #s{payload_info = {Header, _Type, _Channel, _Size},
-                       server       = Server}) ->
-    forward(Server, [Header, Payload]).
-
-%%
-%% Logging
-%%
-
--spec log(string() | atom(), #s{}) -> ok.
-%% @private
-log(Mode, #s{client = Client, server = undefined}) ->
-    lager:info("~s ~s -> ~p",
-               [Mode, poxy:peername(Client), self()]);
-log(Mode, #s{client = Client, server = Server}) ->
-    lager:info("~s ~s -> ~p -> ~s",
-               [Mode, poxy:peername(Client), self(), poxy:peername(Server)]).
-
-%%
 %% Parsing
 %%
 
@@ -232,18 +176,16 @@ input(Data, State = #s{step         = payload,
 -spec intercept(binary(), non_neg_integer(), method(), #s{}) -> ok.
 %% @private
 intercept(Data, 0, _Method, State) ->
-    forward_frame(Data, State);
+    reconstruct_frame(Data, State);
 intercept(Data, _Channel, none, State) ->
-    forward_frame(Data, State);
-intercept(Data, Channel, Method, State = #s{server       = Server,
-                                            protocol     = Protocol,
-                                            interceptors = Interceptors}) ->
-    case poxy_interceptor:thrush(Method, Interceptors) of
+    reconstruct_frame(Data, State);
+intercept(Data, Channel, Method, State) ->
+    case poxy_interceptor:thrush(Method, State#s.interceptors) of
         {modified, NewMethod} ->
             lager:info("MODIFIED ~p", [NewMethod]),
-            forward(Server, Channel, NewMethod, Protocol);
+            forward(State#s.server, Channel, NewMethod, State#s.protocol);
         {unmodified, Method} ->
-            forward_frame(Data, State)
+            reconstruct_frame(Data, State)
     end.
 
 -spec connection_start(version(), protocol(), #s{}) -> #s{}.
@@ -353,3 +295,60 @@ channel_unframe(Current, Previous) ->
         {error, Reason} ->
             throw({channel_frame, Reason})
     end.
+
+%%
+%% Sockets
+%%
+
+-spec reply(client(), binary()) -> ok | {error, _}.
+%% @private
+reply(Client, Data) ->
+    case poxy:socket_open(Client) of
+        true  -> gen_tcp:send(Client, Data);
+        false -> ok
+    end.
+
+-spec reply(client(), method(), protocol()) -> ok.
+%% @private
+reply(Client, Method, Protocol) ->
+    case poxy:socket_open(Client) of
+        true ->
+            rabbit_writer:internal_send_command(Client, 0, Method, Protocol);
+        false ->
+            ok
+    end.
+
+-spec forward(server() | undefined, binary()) -> ok.
+%% @private
+forward(Server, Data) when is_port(Server) ->
+    gen_tcp:send(Server, Data);
+forward(undefined, _Data) ->
+    ok.
+
+-spec forward(server(), non_neg_integer(), method(), protocol()) -> ok.
+%% @private
+forward(Server, Channel, Method, Protocol) ->
+    Frame =
+        rabbit_binary_generator:build_simple_method_frame(Channel,
+                                                          Method,
+                                                          Protocol),
+    forward(Server, Frame).
+
+-spec reconstruct_frame(binary(), #s{}) -> ok.
+%% @private
+reconstruct_frame(Payload, #s{payload_info = {Header, _T, _C, _S},
+                              server       = Server}) ->
+    forward(Server, [Header, Payload]).
+
+%%
+%% Logging
+%%
+
+-spec log(string() | atom(), #s{}) -> ok.
+%% @private
+log(Mode, #s{client = Client, server = undefined}) ->
+    lager:info("~s ~s -> ~p",
+               [Mode, poxy:peername(Client), self()]);
+log(Mode, #s{client = Client, server = Server}) ->
+    lager:info("~s ~s -> ~p -> ~s",
+               [Mode, poxy:peername(Client), self(), poxy:peername(Server)]).
