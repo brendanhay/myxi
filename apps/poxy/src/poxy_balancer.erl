@@ -53,7 +53,6 @@ init({Mod, Nodes}) ->
 
 -spec handle_call(_, _, state()) -> {reply, ok, state()}.
 handle_call(next, _From, {Mod, Nodes}) ->
-    lager:info("NODE ~p", [Nodes]),
     {Node, NewNodes} = Mod:next(Nodes),
     lager:info("BALANCE-NEXT ~s ~s", [Mod, poxy:format_addr(Node)]),
     {reply, Node, {Mod, NewNodes}}.

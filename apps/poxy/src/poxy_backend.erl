@@ -41,7 +41,7 @@ init(Frontend, Addr, Client, Replay) ->
 -spec connect(inet:ip_address(), inet:port_number()) -> server().
 %% @private
 connect(Ip, Port) ->
-    Tcp = [binary, {active, false}, {packet, raw}],
+    Tcp = [binary, {active, false}, {packet, raw}|poxy:config(tcp)],
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Socket} ->
             Socket;

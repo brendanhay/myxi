@@ -123,7 +123,8 @@ start_frontends() -> [frontend(Opts) || Opts <- config(frontends)].
 -spec frontend(frontend()) -> {ok, pid()}.
 %% @private
 frontend(Frontend) ->
-    Tcp = [{ip, option(ip, Frontend)}, {port, option(port, Frontend)}],
+    Tcp = [{ip, option(ip, Frontend)},
+           {port, option(port, Frontend)}|config(tcp)],
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Frontend),
                           cowboy_tcp_transport, Tcp,
