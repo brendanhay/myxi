@@ -29,12 +29,8 @@ new(Frontend) ->
     {route, Mod, Routes} = lists:keyfind(route, 1, Frontend),
     Mod:new(Routes).
 
--spec route(router(), #'connection.start_ok'{}, protocol())
-           -> fun((client(), replay()) -> backend()).
+-spec route(router(), #'connection.start_ok'{}, protocol()) -> addr().
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    fun(Client, Replay) ->
-            poxy_balancer:connect(Balancer, Client, Replay)
-    end.
-
+    poxy_balancer:next(Balancer).

@@ -6,8 +6,8 @@
 -export([behaviour_info/1]).
 
 %% API
--export([start_link/3,
-         connect/3]).
+-export([start_link/4,
+         next/1]).
 
 %% Callbacks
 -export([init/1,
@@ -19,8 +19,9 @@
 
 -include("include/poxy.hrl").
 
--type state() :: {module(), [addr()]}.
-
+-record(s, {mod          :: module(),
+            addrs        :: [addr()],
+            intercepts :: intercepts()}).
 %%
 %% Behaviour
 %%
@@ -34,37 +35,44 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
-start_link(Name, Mod, Nodes) ->
+start_link(Name, Mod, Addrs, Inters) ->
     lager:info("BALANCE-START ~s ~s", [Name, Mod]),
-    gen_server:start_link({local, Name}, ?MODULE, {Mod, Nodes}, []).
+    State = #s{mod = Mod, addrs = Addrs, intercepts = Inters},
+    gen_server:start_link({local, Name}, ?MODULE, State, []).
 
-connect(Pid, Client, Replay) ->
-    Node = gen_server:call(Pid, next),
-    {ok, _Pid, Server} = poxy_backend:start_link(Node, Client, Replay),
-    Server.
+-spec next(pid()) -> {addr(), intercepts()}.
+%% @doc
+next(Pid) -> gen_server:call(Pid, next).
 
 %%
 %% Callbacks
 %%
 
-init({Mod, Nodes}) ->
+init(State) ->
     process_flag(trap_exit, true),
-    {ok, {Mod, Nodes}}.
+    {ok, State}.
 
--spec handle_call(_, _, state()) -> {reply, ok, state()}.
-handle_call(next, _From, {Mod, Nodes}) ->
-    {Node, NewNodes} = Mod:next(Nodes),
-    lager:info("BALANCE-NEXT ~s ~s", [Mod, poxy:format_addr(Node)]),
-    {reply, Node, {Mod, NewNodes}}.
+-spec handle_call(next, reference(), #s{}) -> {reply, {addr(), intercepts()}, #s{}}.
+%% @hidden
+handle_call(next, _From, State = #s{mod          = Mod,
+                                    addrs        = Addrs,
+                                    intercepts = Inters}) ->
+    {Addr, NewAddrs} = Mod:next(Addrs),
+    lager:info("BALANCE-NEXT ~s ~s", [Mod, poxy:format_addr(Addr)]),
+    {reply, {Addr, Inters}, State#s{addrs = NewAddrs}}.
 
--spec handle_cast(_, state()) -> {noreply, state()}.
+-spec handle_cast(_, #s{}) -> {noreply, #s{}}.
+%% @hidden
 handle_cast(_Msg, State) -> {noreply, State}.
 
--spec handle_info(_, state()) -> {noreply, state()} | {stop, normal, state()}.
+-spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
+%% @hidden
 handle_info(_Info, State) -> {noreply, State}.
 
--spec terminate(_, state()) -> ok.
+-spec terminate(_, #s{}) -> ok.
+%% @hidden
 terminate(_Reason, _State) -> ok.
 
--spec code_change(_, state(), _) -> {ok, state()}.
+-spec code_change(_, #s{}, _) -> {ok, #s{}}.
+%% @hidden
 code_change(_OldVsn, State, _Extra) -> {ok, State}.

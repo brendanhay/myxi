@@ -14,7 +14,7 @@
 
 -type addr()  :: [{ip, string()} | {port, inet:port_number()}].
 
--type interceptors() :: [module()].
+-type intercepts() :: [module()].
 
 -type router()   :: poxy_user_router.
 
@@ -23,7 +23,7 @@
 -type frontend() :: [{ip, string()} |
                      {port, pos_integer()} |
                      {max, pos_integer()} |
-                     {interceptors, interceptors()} |
+                     {intercepts, intercepts()} |
                      {route, router(), [any()]}].
 
 -type backend()  :: [{atom(),

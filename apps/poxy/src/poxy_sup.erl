@@ -33,7 +33,11 @@ init([]) ->
 %% Private
 %%
 
-balancer_spec({Name, Opts}) ->
-    Mod = poxy:option(balance, Opts),
-    {Name, {poxy_balancer, start_link, [Name, Mod, poxy:option(nodes, Opts)]},
+balancer_spec({Name, Config}) ->
+    Mod = poxy:option(balance, Config),
+    Args = [Name,
+            Mod,
+            poxy:option(nodes, Config),
+            poxy:option(intercepts, Config)],
+    {Name, {poxy_balancer, start_link, Args},
      permanent, 2000, worker, [poxy_balancer]}.

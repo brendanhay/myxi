@@ -24,7 +24,7 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec thrush(method(), interceptors()) -> {modified(), method()}.
+-spec thrush(method(), intercepts()) -> {modified(), method()}.
 %% @doc
 thrush(Method, Interceptors) ->
     lists:foldl(fun modify/2, {unmodified, Method}, Interceptors).

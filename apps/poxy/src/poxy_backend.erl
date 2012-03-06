@@ -2,36 +2,40 @@
 -module(poxy_backend).
 
 %% API
--export([start_link/3]).
+-export([start_link/4]).
 
 %% Callbacks
--export([init/4]).
+-export([init/5]).
 
 -include("include/poxy.hrl").
 
--type state() :: {client(), server()}.
+-record(s, {writer :: pid(),
+            server :: inet:socket()}).
 
 %%
 %% API
 %%
 
--spec start_link(addr(), client(), replay()) -> {ok, pid(), server()}.
+-spec start_link(pid(), addr(), replay(), intercepts()) -> {ok, pid()}.
 %% @doc
-start_link(Addr, Client, Replay) ->
-    proc_lib:start_link(?MODULE, init, [self(), Addr, Client, Replay]).
+start_link(Writer, Addr, Replay, Inters) ->
+    proc_lib:start_link(?MODULE, init, [self(), Writer, Addr, Replay, Inters]).
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), addr(), client(), replay()) -> no_return().
-init(Frontend, Addr, Client, Replay) ->
+-spec init(pid(), pid(), addr(), replay(), intercepts()) -> no_return().
+init(Sup, Writer, Addr, Replay, Inters) ->
     {Ip, Port} = {poxy:option(ip, Addr), poxy:option(port, Addr)},
     Server = connect(Ip, Port),
-    log("CONN", State = {Client, Server}),
-    ok = replay(Server, Replay),
-    log("REPLAY", State),
-    proc_lib:init_ack(Frontend, {ok, self(), Server}),
+    State = #s{writer = Writer, server = Server},
+    log("CONN", State),
+    proc_lib:init_ack(Sup, {ok, self()}),
+
+    %% Send server socket to writer with replay and intercepts
+    poxy_backend_writer:replay(Writer, Server, Replay, Inters),
+
     loop(State).
 
 %%
@@ -50,21 +54,12 @@ connect(Ip, Port) ->
             throw({backend_unavailable, Ip, Port, Error})
     end.
 
--spec replay(server(), replay()) -> ok.
+-spec loop(#s{}) -> no_return().
 %% @private
-replay(Server, [Payload, Header, Handshake]) ->
-    ok = gen_tcp:send(Server, Handshake),
-    ok = case gen_tcp:recv(Server, 0) of
-             {ok, _Data} -> ok
-         end,
-    gen_tcp:send(Server, [Header, Payload]).
-
--spec loop(state()) -> no_return().
-%% @private
-loop(State = {Client, Server}) ->
+loop(State = #s{writer = Writer, server = Server}) ->
     ok = case gen_tcp:recv(Server, 0) of
              {ok, Data} ->
-                 gen_tcp:send(Client, Data);
+                 poxy_writer:reply(Writer, Data);
              {error, closed} ->
                  log("CLOSED", State),
                  exit(normal);
@@ -78,8 +73,7 @@ loop(State = {Client, Server}) ->
 %% Logging
 %%
 
--spec log(string() | atom(), state()) -> ok.
+-spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, {Client, Server}) ->
-    lager:info("BACKEND-~s ~s -> ~p -> ~s",
-               [Mode, poxy:peername(Server), self(), poxy:peername(Client)]).
+log(Mode, #s{server = Server}) ->
+    lager:info("BACKEND-~s ~s -> ~p", [Mode, poxy:peername(Server), self()]).

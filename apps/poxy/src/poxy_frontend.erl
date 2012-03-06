@@ -6,7 +6,7 @@
 -export([start_link/4]).
 
 %% Callbacks
--export([init/3]).
+-export([init/4]).
 
 -include("include/poxy.hrl").
 
@@ -33,11 +33,12 @@
 
 -type buffer()      :: [binary()].
 
--record(s, {client                :: inet:socket(),
+-record(s, {writer                :: pid(),
+            backend_start         :: fun((addr(), replay(), intercepts()) -> {ok, pid()}),
+            client                :: inet:socket(),
             server                :: inet:socket(),
             protocol              :: protocol() | undefined,
             router                :: module(),
-            interceptors = []     :: [module()],
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
             payload_info          :: {binary(), integer(), integer(), integer()} | undefined,
@@ -51,24 +52,23 @@
 %% API
 %%
 
--spec start_link(pid(), client(), cowboy_tcp_transport, frontend()) -> {ok, pid()}.
+-spec start_link(pid(), client(), fun(), frontend()) -> {ok, pid()}.
 %% @doc
-start_link(Listener, Client, cowboy_tcp_transport, Frontend) ->
-    Pid = spawn_link(?MODULE, init, [Listener, Client, Frontend]),
+start_link(Writer, Client, Backend, Config) ->
+    Pid = spawn_link(?MODULE, init, [Writer, Client, Backend, Config]),
     {ok, Pid}.
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), client(), frontend()) -> no_return().
+-spec init(pid(), client(), fun(), frontend()) -> no_return().
 %% @hidden
-init(Listener, Client, Frontend) ->
-    ok = cowboy:accept_ack(Listener),
-    ok = inet:setopts(Client, [{active, false}]),
-    State = #s{client       = Client,
-               router       = poxy_router:new(Frontend),
-               interceptors = poxy:option(interceptors, Frontend)},
+init(Writer, Client, Backend, Config) ->
+    State = #s{writer        = Writer,
+               client        = Client,
+               backend_start = Backend,
+               router        = poxy_router:new(Config)},
     advance(State, handshake).
 
 %%
@@ -88,7 +88,7 @@ loop(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
 
 -spec update_replay(binary(), #s{}) -> #s{}.
 %% @private
-update_replay(_Data, State) when is_port(State#s.server) ->
+update_replay(_Data, State = #s{backend_start = undefined}) ->
     State#s{replay = []};
 update_replay(Data, State = #s{replay = Replay}) ->
     State#s{replay = [Data|Replay]}.
@@ -149,7 +149,8 @@ input(Data, State = #s{step = header}) ->
     end;
 
 input(Data, State = #s{step         = payload,
-                       payload_info = {_Header, Type, Channel, Size},
+                       writer       = Writer,
+                       payload_info = {Header, Type, Channel, Size},
                        protocol     = Protocol,
                        framing      = FrameState}) ->
     {NewMethod, NewState} =
@@ -170,45 +171,31 @@ input(Data, State = #s{step         = payload,
             _Unknown ->
                 refuse({bad_payload, Type, Channel, Size, Data}, State)
         end,
-    ok = intercept(Data, Channel, NewMethod, State),
+    lager:info("METHOD ~p", [NewMethod]),
+    ok = poxy_writer:forward(Writer, Header, Data, Channel, NewMethod, Protocol),
     advance(NewState, header).
-
--spec intercept(binary(), non_neg_integer(), method(), #s{}) -> ok.
-%% @private
-intercept(Data, 0, _Method, State) ->
-    reconstruct_frame(Data, State);
-intercept(Data, _Channel, none, State) ->
-    reconstruct_frame(Data, State);
-intercept(Data, Channel, Method, State) ->
-    case poxy_interceptor:thrush(Method, State#s.interceptors) of
-        {modified, NewMethod} ->
-            lager:info("MODIFIED ~p", [NewMethod]),
-            forward(State#s.server, Channel, NewMethod, State#s.protocol);
-        {unmodified, Method} ->
-            reconstruct_frame(Data, State)
-    end.
 
 -spec connection_start(version(), protocol(), #s{}) -> #s{}.
 %% @private
-connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
+connection_start({Major, Minor, _Rev}, Protocol, State = #s{writer = Writer}) ->
     log("START", State),
     Start = #'connection.start'{version_major     = Major,
                                 version_minor     = Minor,
                                 server_properties = properties(Protocol),
                                 locales           = <<"en_US">>},
-    ok = reply(Client, Start, Protocol),
+    ok = poxy_writer:reply(Writer, Start, Protocol),
     State#s{protocol = Protocol, framing = {method, Protocol}}.
 
 -spec connection_start_ok(binary(), #s{}) -> #s{}.
 %% @private
-connection_start_ok(StartOk, State = #s{router   = Router,
-                                        client   = Client,
-                                        replay   = Replay,
-                                        protocol = Protocol}) ->
+connection_start_ok(StartOk, State = #s{router        = Router,
+                                        backend_start = Backend,
+                                        replay        = Replay,
+                                        protocol      = Protocol}) ->
     log("START-OK", State),
-    Balancer = poxy_router:route(Router, StartOk, Protocol),
-    Server = Balancer(Client, Replay),
-    State#s{server = Server, replay = []}.
+    {Addr, Inters} = poxy_router:route(Router, StartOk, Protocol),
+    Backend(Addr, Replay, Inters),
+    State#s{backend_start = undefined, replay = []}.
 
 -spec advance(#s{}, frame_step()) -> no_return().
 %% @private
@@ -241,18 +228,16 @@ capabilities(_) ->
 
 -spec refuse(any(), #s{}) -> no_return().
 %% @private
-refuse(Error, State = #s{client = Client}) ->
+refuse(Error, State) ->
     lager:error("FRONTEND-ERR ~p", [Error]),
-    reply(Client, <<"AMQP", 0, 0, 9, 1>>),
     terminate(State).
 
 -spec terminate(#s{}) -> no_return().
 %% @private
-terminate(State = #s{server = Server, client = Client}) ->
+terminate(State = #s{writer = Writer}) ->
     log("FRONTEND-CLOSED", State),
-    catch forward(Server, <<"AMQP", 0, 0, 9, 1>>),
-    catch gen_tcp:close(Server),
-    catch gen_tcp:close(Client),
+    poxy_writer:forward(Writer, <<"AMQP", 0, 0, 9, 1>>),
+    poxy_writer:reply(Writer, <<"AMQP", 0, 0, 9, 1>>),
     exit(normal).
 
 -spec unframe(frame_type(), non_neg_integer(), binary(), protocol(),
@@ -295,50 +280,6 @@ channel_unframe(Current, Previous) ->
         {error, Reason} ->
             throw({channel_frame, Reason})
     end.
-
-%%
-%% Sockets
-%%
-
--spec reply(client(), binary()) -> ok | {error, _}.
-%% @private
-reply(Client, Data) ->
-    case poxy:socket_open(Client) of
-        true  -> gen_tcp:send(Client, Data);
-        false -> ok
-    end.
-
--spec reply(client(), method(), protocol()) -> ok.
-%% @private
-reply(Client, Method, Protocol) ->
-    case poxy:socket_open(Client) of
-        true ->
-            rabbit_writer:internal_send_command(Client, 0, Method, Protocol);
-        false ->
-            ok
-    end.
-
--spec forward(server() | undefined, binary()) -> ok.
-%% @private
-forward(Server, Data) when is_port(Server) ->
-    gen_tcp:send(Server, Data);
-forward(undefined, _Data) ->
-    ok.
-
--spec forward(server(), non_neg_integer(), method(), protocol()) -> ok.
-%% @private
-forward(Server, Channel, Method, Protocol) ->
-    Frame =
-        rabbit_binary_generator:build_simple_method_frame(Channel,
-                                                          Method,
-                                                          Protocol),
-    forward(Server, Frame).
-
--spec reconstruct_frame(binary(), #s{}) -> ok.
-%% @private
-reconstruct_frame(Payload, #s{payload_info = {Header, _T, _C, _S},
-                              server       = Server}) ->
-    forward(Server, [Header, Payload]).
 
 %%
 %% Logging
