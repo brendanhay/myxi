@@ -21,10 +21,7 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
     ok = inet:setopts(Client, [{active, false}]),
     case supervisor:start_link(?MODULE, []) of
         {ok, Pid} ->
-            Writer = start_writer(Pid, Client),
-            lager:info("WRITER ~p", [Writer]),
-            Frontend = start_frontend(Pid, Writer, Client, Config),
-            lager:info("FRONTEND ~p", [Frontend]),
+            start_frontend(Pid, Client, Config),
             {cowboy:accept_ack(Listener), Pid};
         Error ->
             lager:error("SUP-ERR", [Error]),
@@ -59,13 +56,12 @@ start_backend(Sup, Writer, Addr, Replay, Inters) ->
     start_child(Sup, Spec).
 
 %% @private
-start_frontend(Sup, Writer, Client, Config) ->
-    BackendStart =
-        fun(Addr, Replay, Inters) ->
+start_frontend(Sup, Client, Config) ->
+    Backend =
+        fun(Writer, Addr, Replay, Inters) ->
                 start_backend(Sup, Writer, Addr, Replay, Inters)
         end,
-    Spec = {frontend, {poxy_frontend, start_link,
-                       [Writer, Client, BackendStart, Config]},
+    Spec = {frontend, {poxy_frontend, start_link, [Client, Backend, Config]},
             permanent, 2000, worker, [poxy_frontend]},
     start_child(Sup, Spec).
 

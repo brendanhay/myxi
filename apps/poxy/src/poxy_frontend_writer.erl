@@ -15,54 +15,58 @@
 %% API
 %%
 
--spec start_link(client()) -> {ok, pid()}.
+-spec start_link(inet:socket()) -> {ok, pid()}.
 %% @doc
-start_link(Client) -> proc_lib:start_link(?MODULE, init, [self(), Client]).
+start_link(Sock) -> proc_lib:start_link(?MODULE, init, [self(), Sock]).
 
 %% @doc
-reply(Writer, Data) -> Writer ! {reply, Data}.
+reply(Writer, Data) ->
+    Writer ! {reply, Data},
+    ok.
 
 %% @doc
-reply(Writer, Method, Protocol) -> Writer ! {reply, Method, Protocol}.
+reply(Writer, Method, Protocol) ->
+    Writer ! {reply, Method, Protocol},
+    ok.
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), client()) -> no_return().
+-spec init(pid(), inet:socket()) -> no_return().
 %% @hidden
-init(Frontend, Client) ->
+init(Frontend, Sock) ->
     proc_lib:init_ack(Frontend, {ok, self()}),
-    loop(Client).
+    loop(Sock).
 
 %%
 %% Private
 %%
 
 %% @private
-loop(Client) ->
+loop(Sock) ->
     ok = receive
-             {reply, Data}             -> send(Client, Data);
-             {reply, Method, Protocol} -> send(Client, Method, Protocol)
+             {reply, Data}             -> send(Sock, Data);
+             {reply, Method, Protocol} -> send(Sock, Method, Protocol)
          end,
-    loop(Client).
+    loop(Sock).
 
--spec send(client(), binary()) -> ok | {error, _}.
+-spec send(inet:socket(), binary()) -> ok | {error, _}.
 %% @private
-send(Client, Data) ->
+send(Sock, Data) ->
     lager:info("REPLY ~p", [Data]),
-    case poxy:socket_open(Client) of
-        true  -> gen_tcp:send(Client, Data);
+    case poxy:socket_open(Sock) of
+        true  -> gen_tcp:send(Sock, Data);
         false -> ok
     end.
 
--spec send(client(), method(), protocol()) -> ok.
+-spec send(inet:socket(), method(), protocol()) -> ok.
 %% @private
-send(Client, Method, Protocol) ->
+send(Sock, Method, Protocol) ->
     lager:info("REPLY ~p", [Method]),
-    case poxy:socket_open(Client) of
+    case poxy:socket_open(Sock) of
         true ->
-            rabbit_writer:internal_send_command(Client, 0, Method, Protocol);
+            rabbit_writer:internal_send_command(Sock, 0, Method, Protocol);
         false ->
             ok
     end.

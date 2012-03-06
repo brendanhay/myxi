@@ -9,8 +9,9 @@
 
 -include("include/poxy.hrl").
 
--record(s, {writer :: pid(),
-            server :: inet:socket()}).
+-record(s, {client :: pid(),
+            server :: pid(),
+            sock   :: inet:socket()}).
 
 %%
 %% API
@@ -18,24 +19,26 @@
 
 -spec start_link(pid(), addr(), replay(), intercepts()) -> {ok, pid()}.
 %% @doc
-start_link(Writer, Addr, Replay, Inters) ->
-    proc_lib:start_link(?MODULE, init, [self(), Writer, Addr, Replay, Inters]).
+start_link(Client, Addr, Replay, Inters) ->
+    proc_lib:start_link(?MODULE, init, [self(), Client, Addr, Replay, Inters]).
 
 %%
 %% Callbacks
 %%
 
 -spec init(pid(), pid(), addr(), replay(), intercepts()) -> no_return().
-init(Sup, Writer, Addr, Replay, Inters) ->
+init(Sup, Client, Addr, Replay, Inters) ->
     {Ip, Port} = {poxy:option(ip, Addr), poxy:option(port, Addr)},
-    Server = connect(Ip, Port),
-    State = #s{writer = Writer, server = Server},
+
+    Sock = connect(Ip, Port),
+
+    {ok, Server} = poxy_backend_writer:start_link(Sock, Replay, Inters),
+
+    State = #s{server = Server, client = Client, sock = Sock},
+
     log("CONN", State),
-    proc_lib:init_ack(Sup, {ok, self()}),
 
-    %% Send server socket to writer with replay and intercepts
-    poxy_backend_writer:replay(Writer, Server, Replay, Inters),
-
+    proc_lib:init_ack(Sup, {ok, Server}),
     loop(State).
 
 %%
@@ -56,10 +59,10 @@ connect(Ip, Port) ->
 
 -spec loop(#s{}) -> no_return().
 %% @private
-loop(State = #s{writer = Writer, server = Server}) ->
-    ok = case gen_tcp:recv(Server, 0) of
+loop(State = #s{client = Client, sock = Sock}) ->
+    ok = case gen_tcp:recv(Sock, 0) of
              {ok, Data} ->
-                 poxy_writer:reply(Writer, Data);
+                 poxy_frontend_writer:reply(Client, Data);
              {error, closed} ->
                  log("CLOSED", State),
                  exit(normal);
@@ -75,5 +78,5 @@ loop(State = #s{writer = Writer, server = Server}) ->
 
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, #s{server = Server}) ->
-    lager:info("BACKEND-~s ~s -> ~p", [Mode, poxy:peername(Server), self()]).
+log(Mode, #s{sock = Sock}) ->
+    lager:info("BACKEND-~s ~s -> ~p", [Mode, poxy:peername(Sock), self()]).

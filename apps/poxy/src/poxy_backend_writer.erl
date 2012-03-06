@@ -1,133 +1,112 @@
 %% @doc
 -module(poxy_backend_writer).
--behaviour(gen_server).
+-behaviour(gen_sock).
 
 %% API
--export([start_link/2,
-         replay/4,
+-export([start_link/3,
          forward/2,
          forward/6]).
 
 %% Callbacks
--export([init/1,
-         handle_call/3,
-         handle_cast/2,
-         handle_info/2,
-         terminate/2,
-         code_change/3]).
+-export([init/4]).
 
 -include("include/poxy.hrl").
 
--record(s, {server          :: pid() | undefined,
+-record(s, {sock          :: pid() | undefined,
             intercepts = [] :: intercepts()}).
 
 %%
 %% API
 %%
 
--spec start_link(server(), intercepts()) -> {ok, pid()}.
+-spec start_link(inet:socket(), replay(), intercepts()) -> {ok, pid()}.
 %% @doc
-start_link(Server, Inters) ->
-    gen_server:start_link(?MODULE, {Server, Inters}, []).
-
-%% @doc
-replay(Writer, Server, Replay, Inters) ->
-    gen_server:call(Writer, {replay, Server, Replay, Inters}).
+start_link(Sock, Replay, Inters) ->
+    proc_lib:start_link(?MODULE, init, [self(), Sock, Replay, Inters]).
 
 %% @doc
 forward(Writer, Data) ->
-    gen_server:cast(Writer, {forward, Data}).
+    Writer ! {forward, Data},
+    receive
+        {ok, Writer} ->
+            ok
+    end.
 
 %% @doc
 forward(Writer, RawH, RawP, Channel, Method, Protocol) ->
-    gen_server:cast(Writer, {forward, [RawH, RawP], Channel, Method, Protocol}).
+    Writer ! {forward, self(), [RawH, RawP], Channel, Method, Protocol},
+    receive
+        {ok, Writer} ->
+            ok
+    end.
 
 %%
 %% Callbacks
 %%
 
--spec init({server(), intercepts()}) -> no_return().
+-spec init(pid(), inet:socket(), replay(), intercepts()) -> no_return().
 %% @hidden
-init({Server, Inters}) ->
-    process_flag(trap_exit, true),
-    {ok, #s{server = Server, intercepts = Inters}}.
-
--spec handle_call(_, reference(), #s{}) -> {reply, ok, #s{}}.
-%% @hidden
-handle_call({replay, Server, Replay, Inters}, _From, State = #s{server = Server}) ->
-    lager:info("writing replay"),
-    {reply, server_replay(Server, Replay), State}.
-
--spec handle_cast(_, #s{}) -> {noreply, #s{}}.
-%% @hidden
-handle_cast({forward, Data}, State = #s{server = Server})
-  when is_port(Server)->
-    ok = server_forward(Server, Data),
-    {noreply, State};
-handle_cast({forward, [H, P], Channel, Method, Protocol}, State)
-  when is_port(State#s.server)->
-    ok = server_forward(State#s.server, [H, P]),
-    {noreply, State}.
-
--spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
-%% @hidden
-handle_info(_Info, State) -> {noreply, State}.
-
--spec terminate(_, #s{}) -> ok.
-%% @hidden
-terminate(_Reason, _State) -> ok.
-
--spec code_change(_, #s{}, _) -> {ok, #s{}}.
-%% @hidden
-code_change(_OldVsn, State, _Extra) -> {ok, State}.
+init(Backend, Sock, Replay, Inters) ->
+    proc_lib:init_ack(Backend, {ok, self()}),
+    replay(#s{sock = Sock, intercepts = Inters}, Replay).
 
 %%
 %% Private
 %%
 
+-spec replay(inet:socket(), replay()) -> ok.
+%% @private
+replay(State = #s{sock = Sock}, R = [Payload, Header, Handshake]) ->
+    lager:info("REPLAY ~p", [R]),
+    ok = send(Sock, Handshake),
+    ok = case gen_tcp:recv(Sock, 0) of
+             {ok, _Data} -> ok
+         end,
+    ok = send(Sock, [Header, Payload]),
+    loop(State).
+
+-spec loop(#s{}) -> no_return().
+%% @private
+loop(State = #s{sock = Sock}) ->
+    ok = receive
+             {forward, From, Data} ->
+                 From ! {send(Sock, Data), self()};
+             {forward, From, [RawH, RawP], Channel, Method, Protocol} ->
+                 From ! {send(Sock, [RawH, RawP]), self()}
+         end,
+    loop(State).
+
+%%
+%% Interception
+%%
+
 -spec intercept(iolist(), non_neg_integer(), method(), protocol(), #s{}) -> ok.
 %% @private
-intercept(Data, 0, _Method, _Protocol, #s{server = Server}) ->
-    server_forward(Server, Data);
-intercept(Data, _Channel, none, _Protocol, #s{server = Server}) ->
-    server_forward(Server, Data);
-intercept(Data, Channel, Method, Protocol, #s{server     = Server,
+intercept(Data, 0, _Method, _Protocol, #s{sock = Sock}) ->
+    send(Sock, Data);
+intercept(Data, _Channel, none, _Protocol, #s{sock = Sock}) ->
+    send(Sock, Data);
+intercept(Data, Channel, Method, Protocol, #s{sock       = Sock,
                                               intercepts = Inters}) ->
     case poxy_interceptor:thrush(Method, Inters) of
         {modified, NewMethod} ->
             lager:info("MODIFIED ~p", [NewMethod]),
-            server_forward(Server, Channel, NewMethod, Protocol);
+            send(Sock, Channel, NewMethod, Protocol);
         {unmodified, Method} ->
-            server_forward(Server, Data)
+            send(Sock, Data)
     end.
 
-%%
-%% Sockets
-%%
-
--spec server_replay(server(), replay()) -> ok.
+-spec send(inet:socket(), binary()) -> ok.
 %% @private
-server_replay(Server, [Payload, Header, Handshake]) ->
-    ok = gen_tcp:send(Server, Handshake),
-    ok = case gen_tcp:recv(Server, 0) of
-             {ok, _Data} -> ok
-         end,
-    gen_tcp:send(Server, [Header, Payload]),
-    lager:info("REPLAY-OK"),
-    ok.
-
--spec server_forward(server(), binary()) -> ok.
-%% @private
-server_forward(Server, Data) ->
+send(Sock, Data) ->
     lager:info("FORWARD ~p", [Data]),
-    gen_tcp:send(Server, Data).
+    gen_tcp:send(Sock, Data).
 
--spec server_forward(server(), non_neg_integer(), method(), protocol()) -> ok.
+-spec send(inet:socket(), non_neg_integer(), method(), protocol()) -> ok.
 %% @private
-server_forward(Server, Channel, Method, Protocol) ->
-    lager:info("FORWARD ~p", [Method]),
+send(Sock, Channel, Method, Protocol) ->
     Frame =
         rabbit_binary_generator:build_simple_method_frame(Channel,
                                                           Method,
                                                           Protocol),
-    forward(Server, Frame).
+    send(Sock, Frame).
