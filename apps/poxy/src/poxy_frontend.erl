@@ -53,6 +53,8 @@
 %%
 
 %% @doc
+-spec start_link(pid(), client(), cowboy_tcp_transport, frontend())
+                -> {ok, pid()} | ignore | {error, _}.
 start_link(Listener, Client, cowboy_tcp_transport, Config) ->
     proc_lib:start_link(?MODULE, init, [self(), Listener, Client, Config]).
 
@@ -61,10 +63,10 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
 %%
 
 %% @hidden
-init(Sup, Listener, Client, Config) ->
+init(Parent, Listener, Client, Config) ->
     lager:info("FRONTEND-INIT ~p", [self()]),
-    {ok, Backend} = poxy_backend:start_link(Client),
-    ok = proc_lib:init_ack(Sup, {ok, self()}),
+    {ok, Backend} = poxy_backend:start_link(self(), Client),
+    ok = proc_lib:init_ack(Parent, {ok, self()}),
     ok = cowboy:accept_ack(Listener),
     State = #s{backend = Backend,
                client  = Client,
@@ -95,9 +97,9 @@ read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
                                buf_len = BufLen + size(Data),
                                recv    = false});
         {error, closed} ->
-            terminate(client_closed, State);
+            disconnect(client_closed, State);
         Error ->
-            throw({tcp_error, Error})
+            disconnect(Error, State)
     end.
 
 -spec update_replay(binary(), #s{}) -> #s{}.
@@ -125,16 +127,12 @@ next_state(State, header) ->
 next_state(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload) ->
     accumulate(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
--spec terminate(any(), #s{}) -> no_return().
+-spec disconnect(any(), #s{}) -> no_return().
 %% @private
-terminate(Error, State = #s{backend = Backend, server = Server, client = Client}) ->
+disconnect(Error, #s{backend = Backend, server = Server, client = Client}) ->
     lager:error("FRONTEND-ERR ~p", [Error]),
-    log("FRONTEND-CLOSED", State),
-    catch poxy_writer:send(Server, <<"AMQP", 0, 0, 9, 1>>),
-    catch gen_tcp:close(Server),
-    catch poxy_writer:send(Client, <<"AMQP", 0, 0, 9, 1>>),
-    catch gen_tcp:close(Client),
-    exit(Backend, normal),
+    poxy:disconnect([Server, Client]),
+    exit(Backend, frontend_disconnect),
     exit(normal).
 
 %%
@@ -201,9 +199,9 @@ parse(Data, State = #s{step = handshake}) ->
             <<"AMQP", 1, 1, 9, 1>> ->
                 {{8, 0, 0}, rabbit_framing_amqp_0_8};
             <<"AMQP", A, B, C, D>> ->
-                terminate({bad_version, A, B, C, D}, State);
+                disconnect({bad_version, A, B, C, D}, State);
             Other ->
-                terminate({bad_handshake, Other}, State)
+                disconnect({bad_handshake, Other}, State)
         end,
     next_state(connection_start(Version, Protocol, State), header);
 
@@ -212,7 +210,7 @@ parse(Data, State = #s{step = header}) ->
         <<Type:8, Channel:16, Size:32>> ->
             next_state(State#s{payload_info = {Data, Type, Channel, Size}}, payload);
         _Other ->
-            terminate({bad_header, Data}, State)
+            disconnect({bad_header, Data}, State)
     end;
 
 parse(Data, State = #s{step         = payload,
@@ -233,10 +231,12 @@ parse(Data, State = #s{step         = payload,
                     {method, Method, _Content, NewFrameState} ->
                         {Method, State#s{framing = NewFrameState}};
                     {state, NewFrameState} ->
-                        {passthrough, State#s{framing = NewFrameState}}
+                        {passthrough, State#s{framing = NewFrameState}};
+                    Error ->
+                        disconnect(Error, State)
                 end;
             _Unknown ->
-                terminate({bad_payload, Type, Channel, Size, Data}, State)
+                disconnect({bad_payload, Type, Channel, Size, Data}, State)
         end,
     ok = poxy_writer:forward(NewState#s.server, [Header, Data], Channel,
                              NewMethod, Protocol, Inters),
@@ -254,19 +254,19 @@ unframe(Type, 0, Payload, Protocol, _FrameState) ->
         {method, Method, Fields} ->
             {method, Protocol:decode_method_fields(Method, Fields)};
         heartbeat ->
-            throw(heartbeat_not_supported);
+            heartbeat_not_supported;
         error ->
-            throw({unknown_frame, 0, Type, Payload});
+            {unknown_frame, 0, Type, Payload};
         Unknown ->
-            throw({unknown_frame, 0, Type, Payload, Unknown})
+            {unknown_frame, 0, Type, Payload, Unknown}
     end;
 
 unframe(Type, Chan, Payload, Protocol, FrameState) ->
     case rabbit_command_assembler:analyze_frame(Type, Payload, Protocol) of
         heartbeat ->
-            throw(heartbeat_not_supported);
+            heartbeat_not_supported;
         error ->
-            throw({unknown_frame, Chan, Type, Payload});
+            {unknown_frame, Chan, Type, Payload};
         {method, Method, <<0>>} ->
             {method, Protocol:decode_method_fields(Method, <<0>>)};
         Frame ->
@@ -283,8 +283,8 @@ channel_unframe(Current, Previous) ->
             {method, Method, NewFrameState};
         {ok, Method, Content, NewFrameState} ->
             {method, Method, Content, NewFrameState};
-        {error, Reason} ->
-            throw({channel_frame, Reason})
+        Error ->
+            Error
     end.
 
 %%

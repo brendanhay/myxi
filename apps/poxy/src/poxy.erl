@@ -10,7 +10,8 @@
          format_ip/1,
          format_ip/2,
          format_addr/1,
-         peername/1]).
+         peername/1,
+         disconnect/1]).
 
 %% Callbacks
 -export([start/2,
@@ -73,6 +74,13 @@ peername(Sock) ->
         {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
         _Error           -> "DISCONN"
     end.
+
+%% @doc
+disconnect(Sockets) ->
+    [begin
+         catch poxy_writer:send(S, <<"AMQP", 0, 0, 9, 1>>),
+         catch gen_tcp:close(S)
+     end || S <- Sockets].
 
 %%
 %% Callbacks

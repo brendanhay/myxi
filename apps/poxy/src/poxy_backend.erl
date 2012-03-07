@@ -2,24 +2,26 @@
 -module(poxy_backend).
 
 %% API
--export([start_link/1,
+-export([start_link/2,
          connect/3]).
 
 %% Callbacks
--export([init/2]).
+-export([init/3]).
 
 -include("include/poxy.hrl").
 
--record(s, {client :: inet:socket(),
-            server :: inet:socket()}).
+-record(s, {frontend :: pid(),
+            client   :: inet:socket(),
+            server   :: inet:socket()}).
 
 %%
 %% API
 %%
 
--spec start_link(pid()) -> {ok, pid()}.
+-spec start_link(pid(), inet:socket()) -> {ok, pid()}.
 %% @doc
-start_link(Client) -> proc_lib:start_link(?MODULE, init, [self(), Client]).
+start_link(Frontend, Client) ->
+    proc_lib:start_link(?MODULE, init, [self(), Frontend, Client]).
 
 %% @doc
 connect(Backend, Addr, Replay) ->
@@ -27,19 +29,19 @@ connect(Backend, Addr, Replay) ->
     receive
         {connected, Server} -> {ok, Server}
     after
-        2000                -> throw(backend_timeout)
+        2000                -> timeout
     end.
 
 %%
 %% Callbacks
 %%
 
--spec init(pid(), inet:socket()) -> no_return().
+-spec init(pid(), pid(), inet:socket()) -> no_return().
 %% @hidden
-init(Sup, Client) ->
+init(Parent, Frontend, Client) ->
     lager:info("BACKEND-INIT ~p", [self()]),
-    proc_lib:init_ack(Sup, {ok, self()}),
-    idle(#s{client = Client}).
+    proc_lib:init_ack(Parent, {ok, self()}),
+    idle(#s{frontend = Frontend, client = Client}).
 
 %%
 %% States
@@ -49,46 +51,50 @@ init(Sup, Client) ->
 idle(State) ->
     receive
         {connect, From, Addr, Replay} ->
-            From ! {connected, Server = connect(Addr)},
+            {Ip, Port} = {poxy:option(ip, Addr), poxy:option(port, Addr)},
+            From ! {connected, Server = connect(Ip, Port, State, 3)},
             ok = poxy_writer:replay(Server, Replay),
-            connected(State#s{server = Server});
+            read(State#s{server = Server});
         Msg ->
-            lager:error("BACKEND-ERR", [{unexpected_message, Msg}])
+            disconnect({backend_unexpected_message, Msg}, State)
     end.
 
--spec connected(#s{}) -> no_return().
+-spec read(#s{}) -> no_return().
 %% @private
-connected(State = #s{client = Client, server = Server}) ->
+read(State = #s{server = Server, client = Client}) ->
     case gen_tcp:recv(Server, 0) of
         {ok, Data} ->
-            poxy_writer:send(Client, Data);
+            poxy_writer:send(Client, Data),
+            read(State);
         {error, closed} ->
-            log("CLOSED", State),
-            exit(normal);
+            disconnect(server_closed, State);
         Error ->
-            lager:error("BACKEND-ERR", [Error]),
-            throw({backend_error, Error})
-    end,
-    connected(State).
+            disconnect(Error, State)
+    end.
 
 %%
 %% Private
 %%
 
--spec connect(addr()) -> server().
+-spec connect(addr(), #s{}, non_neg_integer()) -> inet:socket().
 %% @private
-connect(Addr) ->
+connect(Ip, Port, State, 0) ->
+    disconnect({backend_timeout, Ip, Port}, State);
+connect(Ip, Port, State, Retries) ->
     Tcp = [binary, {active, false}, {packet, raw}|poxy:config(tcp)],
-    {Ip, Port} = {poxy:option(ip, Addr), poxy:option(port, Addr)},
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;
         Error ->
-            lager:error("BACKEND-ERR", Error),
-            throw({backend_unavailable, Ip, Port, Error})
+            lager:error("BACKEND-ERR ~p", [{Error, Ip, Port}]),
+            timer:sleep(500),
+            connect(Ip, Port, State, Retries - 1)
     end.
 
--spec log(string() | atom(), #s{}) -> ok.
+-spec disconnect(any(), #s{}) -> no_return().
 %% @private
-log(Mode, #s{server = Server}) ->
-    lager:info("BACKEND-~s ~s -> ~p", [Mode, poxy:peername(Server), self()]).
+disconnect(Error, #s{frontend = Frontend, server = Server, client = Client}) ->
+    lager:error("BACKEND-ERR ~p", [Error]),
+    poxy:disconnect([Server, Client]),
+    exit(Frontend, backend_disconnect),
+    exit(normal).
