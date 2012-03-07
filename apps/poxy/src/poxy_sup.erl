@@ -34,10 +34,10 @@ init([]) ->
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = poxy:option(balance, Config),
+    Mod = poxy:option(balancer, Config),
     Args = [Name,
             Mod,
             poxy:option(nodes, Config),
-            poxy:option(intercepts, Config)],
+            poxy:option(interceptors, Config)],
     {Name, {poxy_balancer, start_link, Args},
      permanent, 2000, worker, [poxy_balancer]}.

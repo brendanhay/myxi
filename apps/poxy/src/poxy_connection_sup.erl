@@ -18,11 +18,10 @@
                 -> {ok, pid()} | ignore | {error, _}.
 %% @doc
 start_link(Listener, Client, cowboy_tcp_transport, Config) ->
-    ok = inet:setopts(Client, [{active, false}]),
     case supervisor:start_link(?MODULE, []) of
         {ok, Pid} ->
-            start_frontend(Pid, Client, Config),
-            {cowboy:accept_ack(Listener), Pid};
+            staged_startup(Pid, Listener, Client, Config),
+            {ok, Pid};
         Error ->
             lager:error("SUP-ERR", [Error]),
             throw(Error)
@@ -37,31 +36,28 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
 init([]) -> {ok, {{one_for_all, 0, 1}, []}}.
 
 %%
-%% Private
+%% Startup
 %%
+
+staged_startup(Sup, Listener, Client, Config) ->
+    Backend = start_backend(Sup, Client),
+    _Frontend = start_frontend(Sup, Backend, Client, Config),
+    cowboy:accept_ack(Listener).
+
+%% @private
+start_backend(Sup, Client) ->
+    Spec = {backend, {poxy_backend, start_link, [Client]},
+            permanent, brutal_kill, worker, [poxy_backend]},
+    start_child(Sup, Spec).
+
+%% @private
+start_frontend(Sup, Backend, Client, Config) ->
+    Spec = {frontend, {poxy_frontend, start_link, [Backend, Client, Config]},
+            permanent, brutal_kill, worker, [poxy_frontend]},
+    start_child(Sup, Spec).
 
 %% @private
 start_child(Sup, Spec) ->
     {ok, Pid} = supervisor:start_child(Sup, Spec),
     Pid.
-
-%%
-%% Staged Startup
-%%
-
-%% @private
-start_backend(Sup, Writer, Addr, Replay, Inters) ->
-    Spec = {backend, {poxy_backend, start_link, [Writer, Addr, Replay, Inters]},
-            permanent, 2000, worker, [poxy_backend]},
-    start_child(Sup, Spec).
-
-%% @private
-start_frontend(Sup, Client, Config) ->
-    Backend =
-        fun(Writer, Addr, Replay, Inters) ->
-                start_backend(Sup, Writer, Addr, Replay, Inters)
-        end,
-    Spec = {frontend, {poxy_frontend, start_link, [Client, Backend, Config]},
-            permanent, 2000, worker, [poxy_frontend]},
-    start_child(Sup, Spec).
 

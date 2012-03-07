@@ -24,16 +24,16 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec thrush(method(), intercepts()) -> {modified(), method()}.
+-spec thrush(method(), [interceptor()]) -> {modified(), method()}.
 %% @doc
-thrush(Method, Interceptors) ->
-    lists:foldl(fun modify/2, {unmodified, Method}, Interceptors).
+thrush(Method, Inters) ->
+    lists:foldl(fun modify/2, {unmodified, Method}, Inters).
 
 %%
 %% Private
 %%
 
--spec modify(module(), {modified(), method()}) -> {modified(), method()}.
+-spec modify(interceptor(), {modified(), method()}) -> {modified(), method()}.
 %% @private
 modify(I, {modified, M}) ->
     {_, N} = I:modify(M),

@@ -19,7 +19,7 @@
             [{ip, "0.0.0.0"},
              {port, 5673},
              {max, 10},
-             {route, poxy_user_router, [
+             {router, poxy_user_router, [
                  [{user, <<"activities">>}, {backend, soundcloud}],
                  [{user, <<"guest">>}, {backend, soundcloud}]
              ]}]
@@ -27,8 +27,8 @@
 
         {backends, [
             {soundcloud, [
-                {balance, poxy_roundrobin_balancer},
-                {intercepts, [poxy_ha_interceptor]},
+                {balancer, poxy_roundrobin_balancer},
+                {interceptors, [poxy_ha_interceptor]},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]
                 ]}

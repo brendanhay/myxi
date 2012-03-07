@@ -26,7 +26,7 @@ behaviour_info(_Other)    -> undefined.
 -spec new(frontend()) -> module().
 %% @doc
 new(Frontend) ->
-    {route, Mod, Routes} = lists:keyfind(route, 1, Frontend),
+    {router, Mod, Routes} = lists:keyfind(router, 1, Frontend),
     Mod:new(Routes).
 
 -spec route(router(), #'connection.start_ok'{}, protocol()) -> addr().

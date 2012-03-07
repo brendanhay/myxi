@@ -9,35 +9,34 @@
 %% Types
 %%
 
--type version()  :: {0 | 8,0 | 9,0 | 1}.
--type options()  :: [proplists:property()].
+-type version()      :: {0 | 8,0 | 9,0 | 1}.
+-type options()      :: [proplists:property()].
 
--type addr()  :: [{ip, string()} | {port, inet:port_number()}].
+-type addr()         :: [{ip, string()} | {port, inet:port_number()}].
 
--type intercepts() :: [module()].
+-type interceptor() :: module().
 
--type router()   :: poxy_user_router.
+-type router()       :: poxy_user_router.
 
--type balancer() :: poxy_round_robin.
+-type balancer()     :: poxy_round_robin.
 
--type frontend() :: [{ip, string()} |
-                     {port, pos_integer()} |
-                     {max, pos_integer()} |
-                     {intercepts, intercepts()} |
-                     {route, router(), [any()]}].
+-type frontend()     :: [{ip, string()} |
+                         {port, pos_integer()} |
+                         {max, pos_integer()} |
+                         {interceptors, [interceptor()]} |
+                         {route, router(), [any()]}].
 
--type backend()  :: [{atom(),
-                      {balance, balancer()} |
-                      {nodes, [addr()]}}].
+-type backend()      :: [{atom(),
+                          {balance, balancer()} |
+                          {nodes, [addr()]}}].
 
--type client()   :: inet:socket().
--type server()   :: inet:socket().
+-type client()       :: inet:socket().
+-type server()       :: inet:socket().
 
--type user()     :: binary().
--type replay()   :: iolist().
+-type user()         :: binary().
 
--type protocol() :: rabbit_framing:protocol().
--type method()   :: rabbit_framing:amqp_method_record().
+-type protocol()     :: rabbit_framing:protocol().
+-type method()       :: rabbit_framing:amqp_method_record().
 
 %%
 %% Tests

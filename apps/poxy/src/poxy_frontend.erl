@@ -1,12 +1,11 @@
 %% @doc
 -module(poxy_frontend).
--behaviour(cowboy_protocol).
 
 %% API
--export([start_link/4]).
+-export([start_link/3]).
 
 %% Callbacks
--export([init/3]).
+-export([init/4]).
 
 -include("include/poxy.hrl").
 
@@ -14,34 +13,35 @@
 -define(HEADER, 7).
 -define(PAYLOAD(Len), Len + 1).
 
--type frame_step()  :: handshake | header | payload.
+-type frame_step()     :: handshake | header | payload.
 
--type frame_type()  :: ?FRAME_METHOD | ?FRAME_HEADER | ?FRAME_BODY |
-                       ?FRAME_OOB_METHOD | ?FRAME_OOB_HEADER | ?FRAME_OOB_BODY |
-                       ?FRAME_TRACE | ?FRAME_HEARTBEAT.
+-type frame_type()     :: ?FRAME_METHOD | ?FRAME_HEADER | ?FRAME_BODY |
+                          ?FRAME_OOB_METHOD | ?FRAME_OOB_HEADER | ?FRAME_OOB_BODY |
+                          ?FRAME_TRACE | ?FRAME_HEARTBEAT.
 
--type class_id()    :: rabbit_framing:amqp_class_id().
+-type frame_class_id() :: rabbit_framing:amqp_class_id().
 
--type frame_state() :: {method, protocol()} |
-                       {content_header, method(), class_id(), protocol()} |
-                       {content_body,   method(), non_neg_integer(), class_id(), protocol()}.
+-type frame_state()    :: {method, protocol()} |
+                          {content_header, method(), frame_class_id(), protocol()} |
+                          {content_body, method(), non_neg_integer(), frame_class_id(), protocol()}.
 
--type unframed()    :: {method, method()} |
-                       {state, frame_state()} |
-                       {method, method(), frame_state()} |
-                       {method, method(), #content{}, frame_state()}.
+-type unframed()       :: {method, method()} |
+                          {state, frame_state()} |
+                          {method, method(), frame_state()} |
+                          {method, method(), #content{}, frame_state()}.
 
--type buffer()      :: [binary()].
+-type buffer()         :: [binary()].
 
--record(s, {client                :: pid(),
-            server                :: pid(),
-            sock                  :: inet:socket(),
+-record(s, {backend               :: pid(),
+            client                :: inet:socket(),
+            server                :: inet:socket(),
             protocol              :: protocol() | undefined,
             router                :: module(),
+            interceptors          :: [interceptor()],
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
             payload_info          :: {binary(), integer(), integer(), integer()} | undefined,
-            replay = []           :: replay(),
+            replay = []           :: iolist(),
             buf = []              :: buffer(),
             buf_len = 0           :: non_neg_integer(),
             recv = false          :: true | false,
@@ -52,38 +52,50 @@
 %%
 
 %% @doc
-start_link(Listener, Sock, cowboy_tcp_transport, Config) ->
-    Pid = spawn_link(?MODULE, init, [Listener, Sock, Config]),
-    {ok, Pid}.
+start_link(Backend, Client, Config) ->
+    proc_lib:start_link(?MODULE, init, [self(), Backend, Client, Config]).
 
 %%
 %% Callbacks
 %%
 
 %% @hidden
-init(Listener, Sock, Config) ->
-    inet:setopts(Sock, [{active, false}]),
-    ok = cowboy:accept_ack(Listener),
-    {ok, Client} = poxy_frontend_writer:start_link(Sock),
-    State = #s{client        = Client,
-               sock          = Sock,
-               router        = poxy_router:new(Config)},
-    advance(State, handshake).
+init(Sup, Backend, Client, Config) ->
+    lager:info("FRONTEND-INIT"),
+    proc_lib:init_ack(Sup, {ok, self()}),
+    State = #s{backend = Backend,
+               client  = Client,
+               router  = poxy_router:new(Config)},
+    next_state(State, handshake).
 
 %%
 %% Receive
 %%
 
--spec loop(#s{}) -> no_return().
+-spec accumulate(#s{}) -> no_return().
 %% @private
-loop(State = #s{recv = true}) ->
+accumulate(State = #s{recv = true}) ->
     read(State);
-loop(State = #s{recv_len = RecvLen, buf_len = BufLen}) when BufLen < RecvLen ->
+accumulate(State = #s{recv_len = RecvLen, buf_len = BufLen}) when BufLen < RecvLen ->
     read(State#s{recv = true});
-loop(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
+accumulate(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
     {Data, Rest} = split_buffer(Buf, RecvLen),
     NewState = update_replay(Data, State),
-    input(Data, NewState#s{buf = [Rest], buf_len = BufLen - RecvLen}).
+    parse(Data, NewState#s{buf = [Rest], buf_len = BufLen - RecvLen}).
+
+-spec read(#s{}) -> ok | no_return().
+%% @private
+read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
+    case gen_tcp:recv(Client, 0) of
+        {ok, Data} ->
+            accumulate(State#s{buf     = [Data|Buf],
+                               buf_len = BufLen + size(Data),
+                               recv    = false});
+        {error, closed} ->
+            terminate(client_closed, State);
+        Error ->
+            throw({tcp_error, Error})
+    end.
 
 -spec update_replay(binary(), #s{}) -> #s{}.
 %% @private
@@ -91,20 +103,6 @@ update_replay(_Data, State) when is_pid(State#s.server) ->
     State#s{replay = []};
 update_replay(Data, State = #s{replay = Replay}) ->
     State#s{replay = [Data|Replay]}.
-
--spec read(#s{}) -> ok | no_return().
-%% @private
-read(State = #s{sock = Sock, buf = Buf, buf_len = BufLen}) ->
-    case gen_tcp:recv(Sock, 0) of
-        {ok, Data} ->
-            loop(State#s{buf     = [Data|Buf],
-                         buf_len = BufLen + size(Data),
-                         recv    = false});
-        {error, closed} ->
-            terminate(State);
-        Error ->
-            throw({tcp_error, Error})
-    end.
 
 -spec split_buffer(buffer(), pos_integer()) -> {binary(), binary()}.
 %% @private
@@ -115,67 +113,26 @@ split_buffer(Buf, RecvLen) ->
                  end,
                  RecvLen).
 
-%%
-%% Parsing
-%%
-
--spec input(binary(), #s{}) -> no_return().
+-spec next_state(#s{}, frame_step()) -> no_return().
 %% @private
-input(Data, State = #s{step = handshake}) ->
-    {Version, Protocol} =
-        case Data of
-            <<"AMQP", 0, 0, 9, 1>> ->
-                {{0, 9, 1}, rabbit_framing_amqp_0_9_1};
-            <<"AMQP", 1, 1, 0, 9>> ->
-                {{0, 9, 0}, rabbit_framing_amqp_0_9_1};
-            <<"AMQP", 1, 1, 8, 0>> ->
-                {{8, 0, 0}, rabbit_framing_amqp_0_8};
-            <<"AMQP", 1, 1, 9, 1>> ->
-                {{8, 0, 0}, rabbit_framing_amqp_0_8};
-            <<"AMQP", A, B, C, D>> ->
-                refuse({bad_version, A, B, C, D}, State);
-            Other ->
-                refuse({bad_handshake, Other}, State)
-        end,
-    advance(connection_start(Version, Protocol, State), header);
+next_state(State, handshake) ->
+    accumulate(State#s{step = handshake, recv_len = ?HANDSHAKE});
+next_state(State, header) ->
+    accumulate(State#s{step = header, recv_len = ?HEADER});
+next_state(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload) ->
+    accumulate(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
-input(Data, State = #s{step = header}) ->
-    lager:info("RECV ~p", [Data]),
-    case Data of
-        <<Type:8, Channel:16, Size:32>> ->
-            advance(State#s{payload_info = {Data, Type, Channel, Size}}, payload);
-        _Other ->
-            refuse({bad_header, Data}, State)
-    end;
+-spec terminate(any(), #s{}) -> no_return().
+%% @private
+terminate(Error, State = #s{client = Client}) ->
+    lager:error("FRONTEND-ERR ~p", [Error]),
+    log("FRONTEND-CLOSED", State),
+    poxy_writer:send(Client, <<"AMQP", 0, 0, 9, 1>>),
+    exit(terminated).
 
-input(Data, State = #s{step         = payload,
-                       server       = Server,
-                       payload_info = {Header, Type, Channel, Size},
-                       protocol     = Protocol,
-                       framing      = FrameState}) ->
-    lager:info("RECV ~p", [Data]),
-
-    {NewMethod, NewState} =
-        case Data of
-            <<Payload:Size/binary, ?FRAME_END>> ->
-                case unframe(Type, Channel, Payload, Protocol, FrameState) of
-                    {method, StartOk = #'connection.start_ok'{}} ->
-                        {StartOk, connection_start_ok(StartOk, State)};
-                    {method, Method} ->
-                        {Method, State};
-                    {method, Method, NewFrameState} ->
-                        {Method, State#s{framing = NewFrameState}};
-                    {method, Method, _Content, NewFrameState} ->
-                        {Method, State#s{framing = NewFrameState}};
-                    {state, NewFrameState} ->
-                        {none, State#s{framing = NewFrameState}}
-                end;
-            _Unknown ->
-                refuse({bad_payload, Type, Channel, Size, Data}, State)
-        end,
-    lager:info("SERVER ~p", [Server]),
-    ok = poxy_backend_writer:forward(NewState#s.server, [Header, Data]),
-    advance(NewState, header).
+%%
+%% Handshake
+%%
 
 -spec connection_start(version(), protocol(), #s{}) -> #s{}.
 %% @private
@@ -185,28 +142,8 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
                                 version_minor     = Minor,
                                 server_properties = properties(Protocol),
                                 locales           = <<"en_US">>},
-    ok = poxy_frontend_writer:reply(Client, Start, Protocol),
+    ok = poxy_writer:send(Client, 0, Start, Protocol),
     State#s{protocol = Protocol, framing = {method, Protocol}}.
-
--spec connection_start_ok(binary(), #s{}) -> #s{}.
-%% @private
-connection_start_ok(StartOk, State = #s{router        = Router,
-                                        client = Client,
-                                        replay        = Replay,
-                                        protocol      = Protocol}) ->
-    log("START-OK", State),
-    {Addr, Inters} = poxy_router:route(Router, StartOk, Protocol),
-    {ok, Server} = poxy_backend:start_link(Client, Addr, Replay, Inters),
-    State#s{server = Server, replay = []}.
-
--spec advance(#s{}, frame_step()) -> no_return().
-%% @private
-advance(State, handshake) ->
-    loop(State#s{step = handshake, recv_len = ?HANDSHAKE});
-advance(State, header) ->
-    loop(State#s{step = header, recv_len = ?HEADER});
-advance(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload) ->
-    loop(State#s{step = payload, recv_len = ?PAYLOAD(Size)}).
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
 %% @private
@@ -228,18 +165,79 @@ capabilities(rabbit_framing_amqp_0_9_1) ->
 capabilities(_) ->
     [].
 
--spec refuse(any(), #s{}) -> no_return().
+-spec connection_start_ok(binary(), #s{}) -> #s{}.
 %% @private
-refuse(Error, State) ->
-    lager:error("FRONTEND-ERR ~p", [Error]),
-    terminate(State).
+connection_start_ok(StartOk, State = #s{backend  = Backend,
+                                        router   = Router,
+                                        replay   = Replay,
+                                        protocol = Protocol}) ->
+    log("START-OK", State),
+    {Addr, Inters} = poxy_router:route(Router, StartOk, Protocol),
+    {ok, Server} = poxy_backend:connect(Backend, Addr, Replay),
+    State#s{server = Server, interceptors = Inters, replay = []}.
 
--spec terminate(#s{}) -> no_return().
+%%
+%% Parsing
+%%
+
+-spec parse(binary(), #s{}) -> no_return().
 %% @private
-terminate(State = #s{client = Client}) ->
-    log("FRONTEND-CLOSED", State),
-    poxy_frontend_writer:reply(Client, <<"AMQP", 0, 0, 9, 1>>),
-    exit(normal).
+parse(Data, State = #s{step = handshake}) ->
+    {Version, Protocol} =
+        case Data of
+            <<"AMQP", 0, 0, 9, 1>> ->
+                {{0, 9, 1}, rabbit_framing_amqp_0_9_1};
+            <<"AMQP", 1, 1, 0, 9>> ->
+                {{0, 9, 0}, rabbit_framing_amqp_0_9_1};
+            <<"AMQP", 1, 1, 8, 0>> ->
+                {{8, 0, 0}, rabbit_framing_amqp_0_8};
+            <<"AMQP", 1, 1, 9, 1>> ->
+                {{8, 0, 0}, rabbit_framing_amqp_0_8};
+            <<"AMQP", A, B, C, D>> ->
+                terminate({bad_version, A, B, C, D}, State);
+            Other ->
+                terminate({bad_handshake, Other}, State)
+        end,
+    next_state(connection_start(Version, Protocol, State), header);
+
+parse(Data, State = #s{step = header}) ->
+    case Data of
+        <<Type:8, Channel:16, Size:32>> ->
+            next_state(State#s{payload_info = {Data, Type, Channel, Size}}, payload);
+        _Other ->
+            terminate({bad_header, Data}, State)
+    end;
+
+parse(Data, State = #s{step         = payload,
+                       interceptors = Inters,
+                       payload_info = {Header, Type, Channel, Size},
+                       protocol     = Protocol,
+                       framing      = FrameState}) ->
+    {NewMethod, NewState} =
+        case Data of
+            <<Payload:Size/binary, ?FRAME_END>> ->
+                case unframe(Type, Channel, Payload, Protocol, FrameState) of
+                    {method, StartOk = #'connection.start_ok'{}} ->
+                        {ignore, connection_start_ok(StartOk, State)};
+                    {method, Method} ->
+                        {Method, State};
+                    {method, Method, NewFrameState} ->
+                        {Method, State#s{framing = NewFrameState}};
+                    {method, Method, _Content, NewFrameState} ->
+                        {Method, State#s{framing = NewFrameState}};
+                    {state, NewFrameState} ->
+                        {passthrough, State#s{framing = NewFrameState}}
+                end;
+            _Unknown ->
+                terminate({bad_payload, Type, Channel, Size, Data}, State)
+        end,
+    ok = poxy_writer:forward(NewState#s.server, [Header, Data], Channel,
+                             NewMethod, Protocol, Inters),
+    next_state(NewState, header).
+
+%%
+%% Framing
+%%
 
 -spec unframe(frame_type(), non_neg_integer(), binary(), protocol(),
               frame_state()) -> unframed().
@@ -288,9 +286,9 @@ channel_unframe(Current, Previous) ->
 
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, #s{sock = Sock, server = undefined}) ->
+log(Mode, #s{client = Client, server = undefined}) ->
     lager:info("~s ~s -> ~p",
-               [Mode, poxy:peername(Sock), self()]);
-log(Mode, #s{sock = Sock, server = Server}) ->
+               [Mode, poxy:peername(Client), self()]);
+log(Mode, #s{client = Client, server = Server}) ->
     lager:info("~s ~s -> ~p -> ~s",
-               [Mode, poxy:peername(Sock), self(), poxy:peername(Server)]).
+               [Mode, poxy:peername(Client), self(), poxy:peername(Server)]).
