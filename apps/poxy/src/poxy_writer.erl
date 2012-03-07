@@ -15,11 +15,7 @@
 
 -spec send(inet:socket(), binary()) -> ok | {error, _}.
 %% @private
-send(Sock, Data) ->
-    case poxy:socket_open(Sock) of
-        true  -> gen_tcp:send(Sock, Data);
-        false -> ok
-    end.
+send(Sock, Data) -> gen_tcp:send(Sock, Data).
 
 -spec send(inet:socket(), non_neg_integer(), method(), protocol()) -> ok.
 %% @doc

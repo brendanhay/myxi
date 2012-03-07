@@ -10,8 +10,7 @@
          format_ip/1,
          format_ip/2,
          format_addr/1,
-         peername/1,
-         socket_open/1]).
+         peername/1]).
 
 %% Callbacks
 -export([start/2,
@@ -75,14 +74,6 @@ peername(Sock) ->
         _Error           -> "DISCONN"
     end.
 
--spec socket_open(inet:socket()) -> true | false.
-%% @doc
-socket_open(Sock) ->
-    case erlang:port_info(Sock) of
-        undefined -> false;
-        _Other    -> true
-    end.
-
 %%
 %% Callbacks
 %%
@@ -137,4 +128,4 @@ frontend(Config) ->
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Config),
                           cowboy_tcp_transport, Tcp,
-                          poxy_connection_sup, Config).
+                          poxy_frontend, Config).

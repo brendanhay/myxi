@@ -37,7 +37,7 @@ connect(Backend, Addr, Replay) ->
 -spec init(pid(), inet:socket()) -> no_return().
 %% @hidden
 init(Sup, Client) ->
-    lager:info("BACKEND-INIT"),
+    lager:info("BACKEND-INIT ~p", [self()]),
     proc_lib:init_ack(Sup, {ok, self()}),
     idle(#s{client = Client}).
 
@@ -59,16 +59,16 @@ idle(State) ->
 -spec connected(#s{}) -> no_return().
 %% @private
 connected(State = #s{client = Client, server = Server}) ->
-    ok = case gen_tcp:recv(Server, 0) of
-             {ok, Data} ->
-                 poxy_writer:send(Client, Data);
-             {error, closed} ->
-                 log("CLOSED", State),
-                 exit(normal);
-             Error ->
-                 lager:error("BACKEND-ERR", [Error]),
-                 throw({backend_error, Error})
-         end,
+    case gen_tcp:recv(Server, 0) of
+        {ok, Data} ->
+            poxy_writer:send(Client, Data);
+        {error, closed} ->
+            log("CLOSED", State),
+            exit(normal);
+        Error ->
+            lager:error("BACKEND-ERR", [Error]),
+            throw({backend_error, Error})
+    end,
     connected(State).
 
 %%

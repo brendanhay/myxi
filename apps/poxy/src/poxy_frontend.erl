@@ -1,8 +1,9 @@
 %% @doc
 -module(poxy_frontend).
+-behaviour(cowboy_protocol).
 
 %% API
--export([start_link/3]).
+-export([start_link/4]).
 
 %% Callbacks
 -export([init/4]).
@@ -52,17 +53,19 @@
 %%
 
 %% @doc
-start_link(Backend, Client, Config) ->
-    proc_lib:start_link(?MODULE, init, [self(), Backend, Client, Config]).
+start_link(Listener, Client, cowboy_tcp_transport, Config) ->
+    proc_lib:start_link(?MODULE, init, [self(), Listener, Client, Config]).
 
 %%
 %% Callbacks
 %%
 
 %% @hidden
-init(Sup, Backend, Client, Config) ->
-    lager:info("FRONTEND-INIT"),
-    proc_lib:init_ack(Sup, {ok, self()}),
+init(Sup, Listener, Client, Config) ->
+    lager:info("FRONTEND-INIT ~p", [self()]),
+    {ok, Backend} = poxy_backend:start_link(Client),
+    ok = proc_lib:init_ack(Sup, {ok, self()}),
+    ok = cowboy:accept_ack(Listener),
     State = #s{backend = Backend,
                client  = Client,
                router  = poxy_router:new(Config)},
@@ -124,11 +127,15 @@ next_state(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload)
 
 -spec terminate(any(), #s{}) -> no_return().
 %% @private
-terminate(Error, State = #s{client = Client}) ->
+terminate(Error, State = #s{backend = Backend, server = Server, client = Client}) ->
     lager:error("FRONTEND-ERR ~p", [Error]),
     log("FRONTEND-CLOSED", State),
-    poxy_writer:send(Client, <<"AMQP", 0, 0, 9, 1>>),
-    exit(terminated).
+    catch poxy_writer:send(Server, <<"AMQP", 0, 0, 9, 1>>),
+    catch gen_tcp:close(Server),
+    catch poxy_writer:send(Client, <<"AMQP", 0, 0, 9, 1>>),
+    catch gen_tcp:close(Client),
+    exit(Backend, normal),
+    exit(normal).
 
 %%
 %% Handshake
