@@ -77,8 +77,6 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
-    lager:info("CONN-INIT ~p", [self()]),
-    %% {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
     totochtin_stats:connected(self()),
     {ok, #s{router   = totochtin_router:new(Config),
             listener = Listener,

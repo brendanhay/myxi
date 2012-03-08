@@ -12,12 +12,13 @@
     {mod, {totochtin, []}},
     {env, [
 
+        %% tcp
         %% Global options appended to gen_tcp:listen/connect calls
         {tcp, [
             {keepalive, true}
         ]},
 
-        %% Statsd
+        %% statsd
         %% namespace - the prefix to prepend to statsd keys
         %% url - <host:port> for udp connection
         {statsd, [
@@ -25,6 +26,7 @@
             {url, 'STATSD_URL'}
         ]},
 
+        %% frontends
         {frontends, [
             [{ip, "0.0.0.0"},
              {port, 5673},
@@ -35,6 +37,7 @@
              ]}]
         ]},
 
+        %% backends
         {backends, [
             {soundcloud, [
                 {balancer, totochtin_roundrobin_balancer},
