@@ -44,15 +44,15 @@ test: unit integration
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/poxy/ebin $(DEPS) -sname poxy
+ERL=exec erl -pa apps/totochtin/ebin $(DEPS) -sname totochtin
 
 .PHONY: boot noboot
 
 console: package
-	rel/package/bin/poxy console
+	rel/package/bin/totochtin console
 
 boot: build
-	$(ERL) -s poxy
+	$(ERL) -s totochtin
 
 noboot: build
 	$(ERL)
@@ -85,4 +85,4 @@ xref:
 	$(REBAR) skip_deps=true xref
 
 typer: build
-	typer --annotate --plt $(PLT) -I deps/ -I apps/poxy/ -r apps/ 
+	typer --annotate --plt $(PLT) -I deps/ -I apps/totochtin/ -r apps/

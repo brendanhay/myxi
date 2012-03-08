@@ -1,5 +1,5 @@
-{application, poxy, [
-    {description, "Poxy proxy"},
+{application, totochtin, [
+    {description, "Centzon Totochtin"},
     {vsn, "0.1.0"},
     {registered, []},
     {applications, [
@@ -8,7 +8,7 @@
         lager,
         cowboy
     ]},
-    {mod, {poxy, []}},
+    {mod, {totochtin, []}},
     {env, [
 
         {tcp, [
@@ -19,7 +19,7 @@
             [{ip, "0.0.0.0"},
              {port, 5673},
              {max, 10},
-             {router, poxy_user_router, [
+             {router, totochtin_user_router, [
                  [{user, <<"activities">>}, {backend, soundcloud}],
                  [{user, <<"guest">>}, {backend, soundcloud}]
              ]}]
@@ -27,8 +27,8 @@
 
         {backends, [
             {soundcloud, [
-                {balancer, poxy_roundrobin_balancer},
-                {policies, [poxy_ha_policy]},
+                {balancer, totochtin_roundrobin_balancer},
+                {policies, [totochtin_ha_policy]},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]
                 ]}

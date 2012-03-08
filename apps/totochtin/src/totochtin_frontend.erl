@@ -41,6 +41,10 @@
 
 -type buffer()         :: [binary()].
 
+-define(HANDSHAKE, 8).
+-define(HEADER, 7).
+-define(PAYLOAD(Len), Len + 1).
+
 -record(s, {connection            :: pid(),
             client                :: inet:socket(),
             protocol              :: protocol() | undefined,
@@ -52,10 +56,6 @@
             buf_len = 0           :: non_neg_integer(),
             recv = false          :: true | false,
             recv_len = ?HANDSHAKE :: non_neg_integer()}).
-
--define(HANDSHAKE, 8).
--define(HEADER, 7).
--define(PAYLOAD(Len), Len + 1).
 
 %%
 %% API
