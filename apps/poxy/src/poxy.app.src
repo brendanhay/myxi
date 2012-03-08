@@ -28,7 +28,7 @@
         {backends, [
             {soundcloud, [
                 {balancer, poxy_roundrobin_balancer},
-                {interceptors, [poxy_ha_interceptor]},
+                {policies, [poxy_ha_policy]},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]
                 ]}
