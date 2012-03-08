@@ -9,9 +9,9 @@ REBAR=`which rebar`
 all: deps build
 
 clean:
-	rm -rf apps/**/ebin
-	rm -rf apps/**/log
-	rm -rf apps/**/logs
+	rm -rf apps/*/ebin
+	rm -rf apps/*/log
+	rm -rf apps/*/logs
 	$(REBAR) skip_deps=true clean
 
 deps:
@@ -33,7 +33,7 @@ doc:
 #
 
 unit: build
-	rm -rf apps/**/.eunit
+	rm -rf apps/*/.eunit
 	$(REBAR) eunit skip_deps=true suite=$(T)
 
 integration: build
@@ -80,7 +80,7 @@ build-plt: all
 	  --apps $(APPS) $(DEPS)
 
 dialyzer: build
-	dialyzer apps/**/ebin --plt $(PLT) $(WARNINGS) \
+	dialyzer apps/*/ebin --plt $(PLT) $(WARNINGS) \
 	  | grep -v 'lager_not_running'
 
 xref:

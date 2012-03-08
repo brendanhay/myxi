@@ -90,11 +90,11 @@ init({Listener, Client, Config}) ->
 %% @hidden
 handle_call({replay, StartOk, Replay, Protocol}, {Frontend, _Ref},
             State = #s{router = Router, frontend = Frontend}) ->
-    {Addr, Policies} = totochtin_router:route(Router, StartOk, Protocol),
+    {Name, Addr, Policies} = totochtin_router:route(Router, StartOk, Protocol),
     {ok, Backend, Server} = totochtin_backend:start_link(self(), Addr, Replay),
     {reply, ok, State#s{backend  = Backend,
                         server   = Server,
-                        policies = Policies}}.
+                        policies = [{Name, ?TOPOLOGY_STORE, P} || P <- Policies]}}.
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden
@@ -160,12 +160,15 @@ send(Sock, Channel, Method, Protocol) ->
 -spec intercept(inet:socket(), iolist(), non_neg_integer(),
                 ignore | passthrough | method(), protocol(), [policy()]) -> ok.
 %% @private
-intercept(_Sock, _Data, _Channel, ignore, _Protocol, _Policies) ->
+intercept(_Data, _Channel, ignore, _State) ->
     ok;
-intercept(Sock, Data, _Channel, passthrough, _Protocol, _Policies) ->
-    send(Sock, Data);
-intercept(Sock, Data, Channel, Method, Protocol, Policies) ->
-    case totochtin_policy:thrush(Method, Policies) of
+intercept(Data, _Channel, passthrough, #s{server = Server}) ->
+    send(Server, Data);
+intercept(Data, Channel, Method, #s{server       = Server,
+                                    backend_name = Name,
+                                    protocol     = Protocol,
+                                    policies     = Policies}) ->
+    case totochtin_policy:thrush(Name, Method, Policies) of
         {modified, NewMethod} ->
             lager:info("MODIFIED ~p", [NewMethod]),
             send(Sock, Channel, NewMethod, Protocol);

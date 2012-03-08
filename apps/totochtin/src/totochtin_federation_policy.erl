@@ -8,16 +8,14 @@
 %% @doc
 %%
 
--module(totochtin_ha_policy).
+-module(totochtin_federation_policy).
 
 -behaviour(totochtin_policy).
 
 -include("include/totochtin.hrl").
 
 %% Callbacks
--export([modify/3]).
-
--define(KEY, <<"x-ha-policy">>).
+-export([modify/1]).
 
 %%
 %% Callbacks
@@ -25,8 +23,11 @@
 
 -spec modify(atom(), pid(), method()) -> totochtin_policy:return().
 %% @doc
-modify(_Current, _Topology, Method = #'queue.declare'{arguments = Args}) ->
-    NewArgs = lists:keystore(?KEY, 1, Args, {?KEY, longstr, <<"all">>}),
-    {modified, Method#'queue.declare'{arguments = NewArgs}};
-modify(_Current, _Topology, Method) ->
+modify(Method = #'queue.declare'{queue = Queue}) ->
+    {unmodified, Method};
+
+modify(Method = #'queue.bind'{queue = Queue, exchange = Exchange}) ->
+    {unmodified, Method};
+
+modify(Method) ->
     {unmodified, Method}.

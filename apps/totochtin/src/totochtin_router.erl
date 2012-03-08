@@ -38,8 +38,10 @@ new(Frontend) ->
     {router, Mod, Routes} = lists:keyfind(router, 1, Frontend),
     Mod:new(Routes).
 
--spec route(router(), #'connection.start_ok'{}, protocol()) -> addr().
+-spec route(router(), #'connection.start_ok'{}, protocol())
+           -> {atom(), addr(), [policy()]}.
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    totochtin_balancer:next(Balancer).
+    {Addr, Policies} = totochtin_balancer:next(Balancer),
+    {Balancer, Addr, Policies}.
