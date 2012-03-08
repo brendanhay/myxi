@@ -1,6 +1,5 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
-%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
 %%
@@ -22,7 +21,10 @@
          option/2,
          format_ip/1,
          format_ip/2,
-         peername/1]).
+         peername/1,
+         split_host/1,
+         split_host/2,
+         os_env/2]).
 
 %% Callbacks
 -export([start/2,
@@ -80,6 +82,31 @@ peername(Sock) ->
         _Error           -> "DISCONN"
     end.
 
+-spec split_host(string()) -> {nonempty_string(), undefined | inet:port_number()}.
+%% @doc
+split_host(Host) -> split_host(Host, undefined).
+
+-spec split_host(string(), T::any()) -> {nonempty_string(), T::any() | inet:port_number()}.
+%% @doc
+split_host(Host, Default) ->
+    case string:tokens(Host, ":") of
+        [H|P] when length(P) > 0 -> {H, list_to_integer(lists:flatten(P))};
+        [H|_]                    -> {H, Default}
+    end.
+
+-spec os_env(atom() | string(), string()) -> string().
+%% @private
+os_env(Value, Default) ->
+    case Value of
+        V when is_atom(V) ->
+            case os:getenv(atom_to_list(V)) of
+                false -> Default;
+                Env -> Env
+            end;
+        V when is_list(V) ->
+            V
+    end.
+
 %%
 %% Callbacks
 %%
@@ -113,14 +140,8 @@ ensure_started(App, {error, Reason}) ->
     erlang:error({app_start_failed, App, Reason}).
 
 %%
-%% Private
+%% Setup
 %%
-
--spec lookup_option(atom(), options()) -> any().
-%% @private
-lookup_option(Key, Opts) ->
-    {Key, Value} = lists:keyfind(Key, 1, Opts),
-    Value.
 
 -spec start_listeners() -> [{ok, pid()}].
 %% @private
@@ -135,3 +156,13 @@ listener(Config) ->
     cowboy:start_listener(amqp_listener, option(max, Config),
                           cowboy_tcp_transport, Tcp,
                           totochtin_connection, Config).
+
+%%
+%% Config
+%%
+
+-spec lookup_option(atom(), options()) -> any().
+%% @private
+lookup_option(Key, Opts) ->
+    {Key, Value} = lists:keyfind(Key, 1, Opts),
+    Value.

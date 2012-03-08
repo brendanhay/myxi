@@ -1,6 +1,5 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
-%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
 %%
@@ -37,11 +36,22 @@ start_link() ->
 -spec init([]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init([]) ->
-    {ok, {{one_for_one, 3, 20},
-          [balancer_spec(B) || B <- totochtin:config(backends)]}}.
+    Stats = stats_spec(totochtin:config(statsd)),
+    Balancers = [balancer_spec(B) || B <- totochtin:config(backends)],
+    {ok, {{one_for_one, 3, 20}, [Stats, Balancers]}}.
 
 %%
-%% Private
+%% Grpoc, Graphite
+%%
+
+stats_spec(Config) ->
+    Ns = totochtin:option(namespace, Config),
+    Url = totochtin:os_env(totochtin:option(url, Config), "localhost:8126"),
+    {stats, {totochtin_stats, start_link, [Ns, Url]},
+     permanent, 2000, worker, [totochtin_stats]}.
+
+%%
+%% Balancers
 %%
 
 balancer_spec({Name, Config}) ->

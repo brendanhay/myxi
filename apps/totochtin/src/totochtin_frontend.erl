@@ -1,11 +1,7 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
-%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
-%%
-%% Some code within this module was taken from RabbitMQ.
-%% The initial Developer of the Original Code is VMWare, Inc.
 %%
 %% @author Brendan Hay
 %% @copyright (c) 2012 Brendan Hay <brendan@soundcloud.com>
@@ -155,8 +151,8 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{connection = Conn}) 
 %% @private
 properties(Protocol) ->
     [{<<"capabilities">>, table,   capabilities(Protocol)},
-     {<<"product">>,      longstr, <<"Poxy">>},
-     {<<"version">>,      longstr, <<"0.0.1">>},
+     {<<"product">>,      longstr, <<"Centzon Totochtin">>},
+     {<<"version">>,      longstr, <<"0.1.0">>},
      {<<"platform">>,     longstr, <<"Erlang/OTP">>},
      {<<"copyright">>,    longstr, <<"">>},
      {<<"information">>,  longstr, <<"">>}].

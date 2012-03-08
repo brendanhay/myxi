@@ -1,6 +1,5 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
-%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
 %%
@@ -76,6 +75,7 @@ init({Client, Config}) ->
     process_flag(trap_exit, true),
     lager:info("CONN-INIT ~p", [self()]),
     {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
+    totochtin_stats:connected(self()),
     {ok, #s{router   = totochtin_router:new(Config),
             frontend = Frontend,
             client   = Client}}.
@@ -111,8 +111,10 @@ handle_cast({forward, Raw, Channel, Method, Protocol},
 -spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
 %% @hidden
 handle_info({'EXIT', Pid, _Msg}, State = #s{frontend = Pid}) ->
+    totochtin_stats:disconnected(self(), frontend_disconnect),
     {stop, normal, State};
 handle_info({'EXIT', Pid, _Msg}, State = #s{backend = Pid}) ->
+    totochtin_stats:disconnected(self(), backend_disconnect),
     {stop, normal, State}.
 
 -spec terminate(_, #s{}) -> ok.

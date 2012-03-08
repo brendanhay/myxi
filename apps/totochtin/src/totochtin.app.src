@@ -11,8 +11,17 @@
     {mod, {totochtin, []}},
     {env, [
 
+        %% Global options appended to gen_tcp:listen/connect calls
         {tcp, [
             {keepalive, true}
+        ]},
+
+        %% Statsd
+        %% namespace - the prefix to prepend to statsd keys
+        %% url - <host:port> for udp connection
+        {statsd, [
+            {namespace, "centzon.totochtin"},
+            {url, 'STATSD_URL'}
         ]},
 
         {frontends, [

@@ -46,6 +46,14 @@
 -type method()       :: rabbit_framing:amqp_method_record().
 
 %%
+%% GProc
+%%
+
+-define(AGGR(Name), {a, l, {?MODULE, Name}}).
+-define(CNTR(Name), {c, l, {?MODULE, Name}}).
+-define(PROP(Name), {p, l, {?MODULE, Name}}).
+
+%%
 %% Tests
 %%
 
