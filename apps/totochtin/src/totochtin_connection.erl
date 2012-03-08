@@ -124,23 +124,11 @@ handle_info({'EXIT', Pid, _Msg}, State = #s{backend = Pid}) ->
 
 -spec terminate(_, #s{}) -> ok.
 %% @hidden
-terminate(_Reason, #s{backend = Backend,
-                      frontend = Frontend,
-                      server = Server,
-                      client = Client}) ->
-    catch exit(Backend, kill),
-    catch exit(Frontend, kill),
-
-    Close = #'connection.close'{reply_text = <<"Goodbye">>, reply_code = 200,
-                                class_id  = 0, method_id = 0},
-    rabbit_writer:internal_send_command(Server, 0, Close, rabbit_framing_amqp_0_9_1),
-
-    catch gen_tcp:close(Server),
-    catch gen_tcp:close(Client),
-
+terminate(_Reason, State) ->
+    close_server(State),
+    close_client(State),
     lager:info("CONN-EXIT"),
     ok.
-
 
 
 -spec code_change(_, #s{}, _) -> {ok, #s{}}.
@@ -184,3 +172,18 @@ intercept(Sock, Data, Channel, Method, Protocol, Policies) ->
             send(Sock, Data)
     end.
 
+
+close_client(#s{frontend = Frontend, client = Client}) ->
+    catch exit(Frontend, kill),
+    gen_tcp:close(Client).
+
+close_server(#s{backend = undefined}) ->
+    ok;
+close_server(#s{backend = Backend, server = undefined}) ->
+    exit(Backend, kill);
+close_server(#s{backend = Backend, server = Server}) ->
+    exit(Backend, kill),
+    Close = #'connection.close'{reply_text = <<"Goodbye">>, reply_code = 200,
+                                class_id  = 0, method_id = 0},
+    rabbit_writer:internal_send_command(Server, 0, Close, rabbit_framing_amqp_0_9_1),
+    gen_tcp:close(Server).
