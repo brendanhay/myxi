@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(poxy_user_router, [Routes]).
+-module(toto_user_router, [Routes]).
 
--behaviour(poxy_router).
+-behaviour(toto_router).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% Callbacks
 -export([select_balancer/2]).

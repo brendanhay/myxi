@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(poxy_policy).
+-module(toto_policy).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).

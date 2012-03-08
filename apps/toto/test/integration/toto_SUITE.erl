@@ -1,6 +1,6 @@
--module(poxy_SUITE).
+-module(toto_SUITE).
 
--include("poxy_common_test.hrl").
+-include("toto_common_test.hrl").
 
 -define(PORT, 5672).
 

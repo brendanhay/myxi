@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(poxy_sup).
+-module(toto_sup).
 
 -behaviour(supervisor).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% API
 -export([start_link/0]).
@@ -38,21 +38,21 @@ start_link() ->
 %% @hidden
 init([]) ->
     {ok, {{one_for_one, 3, 20},
-          [balancer_spec(B) || B <- poxy:config(backends)]}}.
+          [balancer_spec(B) || B <- toto:config(backends)]}}.
 
 %%
 %% Private
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = poxy:option(balancer, Config),
+    Mod = toto:option(balancer, Config),
     Args = [Name,
             Mod,
             node_addresses(Config),
-            poxy:option(policies, Config)],
-    {Name, {poxy_balancer, start_link, Args},
-     permanent, 2000, worker, [poxy_balancer]}.
+            toto:option(policies, Config)],
+    {Name, {toto_balancer, start_link, Args},
+     permanent, 2000, worker, [toto_balancer]}.
 
-node_addresses(Config) -> [address(Addr) || Addr <- poxy:option(nodes, Config)].
+node_addresses(Config) -> [address(Addr) || Addr <- toto:option(nodes, Config)].
 
-address(Addr) -> {poxy:option(ip, Addr), poxy:option(port, Addr)}.
+address(Addr) -> {toto:option(ip, Addr), toto:option(port, Addr)}.

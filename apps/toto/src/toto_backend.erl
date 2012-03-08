@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(poxy_backend).
+-module(toto_backend).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% API
 -export([start_link/3]).
@@ -54,7 +54,7 @@ init(Parent, Conn, {Ip, Port}, Replay) ->
 read(State = #s{connection = Conn, server = Server}) ->
     case gen_tcp:recv(Server, 0) of
         {ok, Data} ->
-            poxy_connection:reply(Conn, Data),
+            toto_connection:reply(Conn, Data),
             read(State);
         {error, closed} ->
             exit(normal);
@@ -80,7 +80,7 @@ replay(Server, [Payload, Header, Handshake]) ->
 connect(Ip, Port, 0) ->
     exit({backend_timeout, Ip, Port});
 connect(Ip, Port, Retries) ->
-    Tcp = [binary, {active, false}, {packet, raw}|poxy:config(tcp)],
+    Tcp = [binary, {active, false}, {packet, raw}|toto:config(tcp)],
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

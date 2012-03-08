@@ -9,9 +9,19 @@
 %% @doc
 %%
 
--compile(export_all).
+-module(toto_roundrobin_balancer).
 
--include("poxy.hrl").
+-behaviour(toto_balancer).
 
--include_lib("common_test/include/ct.hrl").
--include_lib("eunit/include/eunit.hrl").
+-include("include/toto.hrl").
+
+%% Callbacks
+-export([next/1]).
+
+%%
+%% Callbacks
+%%
+
+-spec next([addr()]) -> {addr(), [addr()]}.
+%% @doc
+next([H|T]) -> {H, T ++ [H]}.

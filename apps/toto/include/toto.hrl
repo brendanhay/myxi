@@ -21,11 +21,11 @@
 
 -type addr()         :: [{inet:ip_address(), inet:port_number()}].
 
--type policy() :: poxy_ha_policy.
+-type policy() :: toto_ha_policy.
 
--type router()       :: poxy_user_router.
+-type router()       :: toto_user_router.
 
--type balancer()     :: poxy_round_robin.
+-type balancer()     :: toto_round_robin.
 
 -type frontend()     :: [{ip, string()} |
                          {port, pos_integer()} |

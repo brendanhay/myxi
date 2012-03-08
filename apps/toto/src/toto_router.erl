@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(poxy_router).
+-module(toto_router).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -43,4 +43,4 @@ new(Frontend) ->
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    poxy_balancer:next(Balancer).
+    toto_balancer:next(Balancer).

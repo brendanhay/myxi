@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(poxy).
+-module(toto).
 
 -behaviour(application).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% API
 -export([start/0,
@@ -76,7 +76,7 @@ format_ip({A, B, C, D}, Port) ->
 %% @doc
 peername(Sock) ->
     case inet:peername(Sock) of
-        {ok, {Ip, Port}} -> poxy:format_ip(Ip, Port);
+        {ok, {Ip, Port}} -> toto:format_ip(Ip, Port);
         _Error           -> "DISCONN"
     end.
 
@@ -88,7 +88,7 @@ peername(Sock) ->
 %% @hidden
 start(normal, _Args) ->
     start_listeners(),
-    poxy_sup:start_link().
+    toto_sup:start_link().
 
 -spec stop(_) -> ok.
 %% @hidden
@@ -134,4 +134,4 @@ listener(Config) ->
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Config),
                           cowboy_tcp_transport, Tcp,
-                          poxy_connection, Config).
+                          toto_connection, Config).

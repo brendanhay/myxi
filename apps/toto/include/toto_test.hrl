@@ -9,19 +9,11 @@
 %% @doc
 %%
 
--module(poxy_roundrobin_balancer).
+-compile(export_all).
 
--behaviour(poxy_balancer).
+-include("include/toto.hrl").
 
--include("include/poxy.hrl").
+-include_lib("proper/include/proper.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
-%% Callbacks
--export([next/1]).
-
-%%
-%% Callbacks
-%%
-
--spec next([addr()]) -> {addr(), [addr()]}.
-%% @doc
-next([H|T]) -> {H, T ++ [H]}.
+-define(EQC(P), ?assert(proper:quickcheck(P))).

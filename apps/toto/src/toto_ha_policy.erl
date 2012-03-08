@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(poxy_ha_policy).
+-module(toto_ha_policy).
 
--behaviour(poxy_policy).
+-behaviour(toto_policy).
 
--include("include/poxy.hrl").
+-include("include/toto.hrl").
 
 %% Callbacks
 -export([modify/1]).
