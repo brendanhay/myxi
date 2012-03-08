@@ -25,7 +25,7 @@
 %% API
 %%
 
-%-spec start_link(inet:socket()) -> {ok, pid()}.
+-spec start_link(pid(), addr(), iolist()) -> {ok, pid()}.
 %% @doc
 start_link(Conn, Addr, Replay) ->
     proc_lib:start_link(?MODULE, init, [self(), Conn, Addr, Replay]).
@@ -34,10 +34,10 @@ start_link(Conn, Addr, Replay) ->
 %% Callbacks
 %%
 
-%-spec init(pid(), inet:socket()) -> no_return().
+-spec init(pid(), pid(), inet:socket(), iolist()) -> no_return().
 %% @hidden
-init(Parent, Conn, {Ip, Port}, Replay) ->
-    Server = connect(Ip, Port, 3),
+init(Parent, Conn, Addr, Replay) ->
+    Server = connect(Addr, 3),
     gen_tcp:controlling_process(Server, Conn),
     lager:info("BACKEND-INIT ~p", [Server]),
     proc_lib:init_ack(Parent, {ok, self(), Server}),
@@ -74,11 +74,11 @@ replay(Server, [Payload, Header, Handshake]) ->
          end,
     gen_tcp:send(Server, [Header, Payload]).
 
-%-spec connect(addr(), #s{}, non_neg_integer()) -> inet:socket().
+-spec connect(addr(), non_neg_integer()) -> inet:socket().
 %% @private
-connect(Ip, Port, 0) ->
+connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
-connect(Ip, Port, Retries) ->
+connect({Ip, Port}, Retries) ->
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
         ++ totochtin:config(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
@@ -87,5 +87,5 @@ connect(Ip, Port, Retries) ->
         Error ->
             lager:error("BACKEND-ERR ~p", [{Error, Ip, Port}]),
             timer:sleep(500),
-            connect(Ip, Port, Retries - 1)
+            connect({Ip, Port}, Retries - 1)
     end.

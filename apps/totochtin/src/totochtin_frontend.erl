@@ -57,6 +57,7 @@
 %% API
 %%
 
+-spec start_link(pid(), inet:socket()) -> {ok, pid()}.
 %% @doc
 start_link(Conn, Client) ->
     proc_lib:start_link(?MODULE, init, [self(), Conn, Client]).
@@ -65,6 +66,7 @@ start_link(Conn, Client) ->
 %% Callbacks
 %%
 
+-spec init(pid(), pid(), inet:socket()) -> no_return().
 %% @hidden
 init(Parent, Conn, Client) ->
     lager:info("FRONTEND-INIT ~p", [Client]),

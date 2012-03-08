@@ -53,18 +53,22 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
             Error
     end.
 
+-spec reply(pid(), iolist()) -> ok.
 %% @doc
 reply(Conn, Raw) ->
     gen_server:cast(Conn, {reply, Raw}).
 
+-spec reply(pid(), pos_integer(), method(), protocol()) -> ok.
 %% @doc
 reply(Conn, Channel, Method, Protocol) ->
     gen_server:cast(Conn, {reply, Channel, Method, Protocol}).
 
+-spec replay(pid(), #'connection.start_ok'{}, iolist(), protocol()) -> ok.
 %% @doc
 replay(Conn, StartOk, Replay, Protocol) ->
     gen_server:call(Conn, {replay, StartOk, Replay, Protocol}).
 
+-spec forward(pid(), iolist(), pos_integer(), method(), protocol()) -> ok.
 %% @doc
 forward(Conn, Raw, Channel, Method, Protocol) ->
     gen_server:cast(Conn, {forward, Raw, Channel, Method, Protocol}).
@@ -110,8 +114,8 @@ handle_cast({forward, Raw, Channel, Method, Protocol},
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
 %% @hidden
-%% Cowboy acknowledgement
 handle_info({shoot, Listener}, State = #s{listener = Listener, client = Client}) ->
+    %% Cowboy acknowledgement
     lager:info("CONN-ACCEPT"),
     {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
     {noreply, State#s{frontend = Frontend}};
@@ -169,15 +173,19 @@ intercept(Sock, Data, Channel, Method, Protocol, Policies) ->
             send(Sock, Data)
     end.
 
-
+-spec close_client(#s{}) -> ok.
+%% @private
 close_client(#s{frontend = Frontend, client = Client}) ->
     catch exit(Frontend, kill),
     gen_tcp:close(Client).
 
+-spec close_server(#s{}) -> ok.
+%% @private
 close_server(#s{backend = undefined}) ->
     ok;
 close_server(#s{backend = Backend, server = undefined}) ->
-    exit(Backend, kill);
+    exit(Backend, kill),
+    ok;
 close_server(#s{backend = Backend, server = Server}) ->
     exit(Backend, kill),
     Close = #'connection.close'{reply_text = <<"Goodbye">>, reply_code = 200,

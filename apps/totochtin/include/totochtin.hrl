@@ -19,7 +19,7 @@
 -type version()      :: {0 | 8,0 | 9,0 | 1}.
 -type options()      :: [proplists:property()].
 
--type addr()         :: [{inet:ip_address(), inet:port_number()}].
+-type addr()         :: {inet:ip_address(), inet:port_number()}.
 
 -type policy() :: totochtin_ha_policy.
 

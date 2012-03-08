@@ -9,7 +9,10 @@ REBAR=`which rebar`
 all: deps build
 
 clean:
-	$(REBAR) clean
+	rm -rf apps/**/ebin
+	rm -rf apps/**/log
+	rm -rf apps/**/logs
+	$(REBAR) skip_deps=true clean
 
 deps:
 	$(REBAR) get-deps
@@ -30,11 +33,10 @@ doc:
 #
 
 unit: build
-	rm -rf apps/rist/.eunit
+	rm -rf apps/**/.eunit
 	$(REBAR) eunit skip_deps=true suite=$(T)
 
 integration: build
-	rm -rf apps/rist/logs
 	$(REBAR) ct skip_deps=true suites=$(T)
 
 test: unit integration
