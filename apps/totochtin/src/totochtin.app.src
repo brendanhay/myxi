@@ -6,7 +6,8 @@
         kernel,
         stdlib,
         lager,
-        cowboy
+        cowboy,
+        gproc
     ]},
     {mod, {totochtin, []}},
     {env, [

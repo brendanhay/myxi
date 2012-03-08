@@ -31,6 +31,7 @@
          code_change/3]).
 
 -record(s, {router   :: router(),
+            listener :: pid(),
             backend  :: pid(),
             frontend :: pid(),
             client   :: inet:socket(),
@@ -45,9 +46,8 @@
                 -> {ok, pid()} | ignore | {error, _}.
 %% @doc
 start_link(Listener, Client, cowboy_tcp_transport, Config) ->
-    case gen_server:start_link(?MODULE, {Client, Config}, []) of
+    case gen_server:start_link(?MODULE, {Listener, Client, Config}, []) of
         {ok, Pid} ->
-            ok = cowboy:accept_ack(Listener),
             {ok, Pid};
         Error ->
             Error
@@ -71,13 +71,13 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 
 -spec init(_) -> {ok, #s{}}.
 %% @hidden
-init({Client, Config}) ->
+init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
     lager:info("CONN-INIT ~p", [self()]),
-    {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
+    %% {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
     totochtin_stats:connected(self()),
     {ok, #s{router   = totochtin_router:new(Config),
-            frontend = Frontend,
+            listener = Listener,
             client   = Client}}.
 
 -spec handle_call(_, _, #s{}) -> {reply, ok, #s{}}.
@@ -108,13 +108,18 @@ handle_cast({forward, Raw, Channel, Method, Protocol},
     ok = intercept(Server, Raw, Channel, Method, Protocol, Policies),
     {noreply, State}.
 
+
+
 -spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
 %% @hidden
+%% Cowboy acknowledgement
+handle_info({shoot, Listener}, State = #s{listener = Listener, client = Client}) ->
+    lager:info("CONN-ACCEPT"),
+    {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
+    {noreply, State#s{frontend = Frontend}};
 handle_info({'EXIT', Pid, _Msg}, State = #s{frontend = Pid}) ->
-    totochtin_stats:disconnected(self(), frontend_disconnect),
     {stop, normal, State};
 handle_info({'EXIT', Pid, _Msg}, State = #s{backend = Pid}) ->
-    totochtin_stats:disconnected(self(), backend_disconnect),
     {stop, normal, State}.
 
 -spec terminate(_, #s{}) -> ok.
@@ -123,15 +128,20 @@ terminate(_Reason, #s{backend = Backend,
                       frontend = Frontend,
                       server = Server,
                       client = Client}) ->
+    catch exit(Backend, kill),
+    catch exit(Frontend, kill),
+
+    Close = #'connection.close'{reply_text = <<"Goodbye">>, reply_code = 200,
+                                class_id  = 0, method_id = 0},
+    rabbit_writer:internal_send_command(Server, 0, Close, rabbit_framing_amqp_0_9_1),
+
     catch gen_tcp:close(Server),
     catch gen_tcp:close(Client),
-    case Backend of
-        undefined -> ok;
-        _Pid      -> exit(Backend, kill)
-    end,
-    exit(Frontend, kill),
+
     lager:info("CONN-EXIT"),
     ok.
+
+
 
 -spec code_change(_, #s{}, _) -> {ok, #s{}}.
 %% @hidden
@@ -146,7 +156,7 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 send(Sock, Data) ->
     case gen_tcp:send(Sock, Data) of
         ok    -> ok;
-        Error -> lager:error("~p", [Error])
+        Error -> lager:error("CONN-ERR ~p", [Error])
     end.
 
 -spec send(inet:socket(), non_neg_integer(), method(), protocol()) -> ok.
@@ -173,3 +183,4 @@ intercept(Sock, Data, Channel, Method, Protocol, Policies) ->
         {unmodified, Method} ->
             send(Sock, Data)
     end.
+

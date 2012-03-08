@@ -38,7 +38,7 @@ start_link() ->
 init([]) ->
     Stats = stats_spec(totochtin:config(statsd)),
     Balancers = [balancer_spec(B) || B <- totochtin:config(backends)],
-    {ok, {{one_for_one, 3, 20}, [Stats, Balancers]}}.
+    {ok, {{one_for_one, 3, 20}, [Stats|Balancers]}}.
 
 %%
 %% Grpoc, Graphite

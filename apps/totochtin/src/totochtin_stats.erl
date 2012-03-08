@@ -16,8 +16,7 @@
 
 %% API
 -export([start_link/2,
-         connected/1,
-         disconnected/2]).
+         connected/1]).
 
 %% Callbacks
 -export([init/1,
@@ -51,12 +50,7 @@ start_link(Ns, Url) ->
 %%
 
 %% @doc
-connected(Conn) ->
-    cast({connected, Conn, now()}).
-
-%% @doc
-disconnected(Conn, Status) ->
-    cast({disconnected, Conn, Status, now()}).
+connected(Conn) -> cast({connected, Conn, now()}).
 
 %%
 %% Callbacks
@@ -79,20 +73,22 @@ handle_call(_Msg, _From, State) -> {reply, ok, State}.
 %% listener creates a totochtin_connection
 handle_cast({connected, Conn, Started}, State) ->
     gproc:reg(?PROP(Conn), Started),
+    monitor(process, Conn),
     stat(State, counter, connect, 1),
-    {noreply, State};
-
-%% totochtin_connection terminates
-handle_cast({disconnected, Conn, Status, Finished}, State) ->
-    Started = gproc:get_value(?PROP(Conn)),
-    gproc:unreg(?PROP(Conn)),
-    stat(State, timer, Status, now_diff(Finished, Started)),
-    stat(State, counter, connect, -1),
     {noreply, State}.
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}}.
-%% @hidden
-handle_info(_Info, State) -> {noreply, State}.
+%% @hidden totochtin_connection terminates
+handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
+    Started = gproc:get_value(?PROP(Conn)),
+    gproc:unreg(?PROP(Conn)),
+    Status = case Reason of
+                 normal -> complete;
+                 _Other -> error
+             end,
+    stat(State, timer, Status, now_diff(now(), Started)),
+    stat(State, counter, connect, -1),
+    {noreply, State}.
 
 -spec terminate(_, #s{}) -> ok.
 %% @hidden

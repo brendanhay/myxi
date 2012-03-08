@@ -58,9 +58,9 @@ read(State = #s{connection = Conn, server = Server}) ->
         {error, closed} ->
             exit(normal);
         Error ->
+            lager:error("BACKEND-ERR ~p", [Error]),
             exit(Error)
     end.
-
 %%
 %% Private
 %%
@@ -79,7 +79,8 @@ replay(Server, [Payload, Header, Handshake]) ->
 connect(Ip, Port, 0) ->
     exit({backend_timeout, Ip, Port});
 connect(Ip, Port, Retries) ->
-    Tcp = [binary, {active, false}, {packet, raw}|totochtin:config(tcp)],
+    Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
+        ++ totochtin:config(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

@@ -52,7 +52,7 @@ console: package
 	rel/package/bin/totochtin console
 
 boot: build
-	$(ERL) -s totochtin
+	$(ERL) -boot start_sasl -s totochtin 
 
 noboot: build
 	$(ERL)
