@@ -53,15 +53,19 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
             Error
     end.
 
+%% @doc
 reply(Conn, Raw) ->
     gen_server:cast(Conn, {reply, Raw}).
 
+%% @doc
 reply(Conn, Channel, Method, Protocol) ->
     gen_server:cast(Conn, {reply, Channel, Method, Protocol}).
 
+%% @doc
 replay(Conn, StartOk, Replay, Protocol) ->
     gen_server:call(Conn, {replay, StartOk, Replay, Protocol}).
 
+%% @doc
 forward(Conn, Raw, Channel, Method, Protocol) ->
     gen_server:cast(Conn, {forward, Raw, Channel, Method, Protocol}).
 
@@ -96,19 +100,15 @@ handle_cast({reply, Raw}, State = #s{client = Client})
   when is_port(Client) ->
     ok = send(Client, Raw),
     {noreply, State};
-
 handle_cast({reply, Channel, Method, Protocol}, State = #s{client = Client})
   when is_port(Client) ->
     ok = send(Client, Channel, Method, Protocol),
     {noreply, State};
-
 handle_cast({forward, Raw, Channel, Method, Protocol},
             State = #s{server = Server, policies = Policies})
   when is_port(Server) ->
     ok = intercept(Server, Raw, Channel, Method, Protocol, Policies),
     {noreply, State}.
-
-
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
 %% @hidden
@@ -130,7 +130,6 @@ terminate(_Reason, State) ->
     lager:info("CONN-EXIT"),
     ok.
 
-
 -spec code_change(_, #s{}, _) -> {ok, #s{}}.
 %% @hidden
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
@@ -148,7 +147,7 @@ send(Sock, Data) ->
     end.
 
 -spec send(inet:socket(), non_neg_integer(), method(), protocol()) -> ok.
-%% @doc
+%% @private
 send(Sock, 0, Method, Protocol) ->
     rabbit_writer:internal_send_command(Sock, 0, Method, Protocol);
 send(Sock, Channel, Method, Protocol) ->
@@ -158,7 +157,7 @@ send(Sock, Channel, Method, Protocol) ->
 
 -spec intercept(inet:socket(), iolist(), non_neg_integer(),
                 ignore | passthrough | method(), protocol(), [policy()]) -> ok.
-%% @doc
+%% @private
 intercept(_Sock, _Data, _Channel, ignore, _Protocol, _Policies) ->
     ok;
 intercept(Sock, Data, _Channel, passthrough, _Protocol, _Policies) ->
