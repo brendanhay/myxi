@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(toto_ha_policy).
+-module(totochtin_ha_policy).
 
--behaviour(toto_policy).
+-behaviour(totochtin_policy).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% Callbacks
 -export([modify/1]).

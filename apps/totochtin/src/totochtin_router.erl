@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(toto_router).
+-module(totochtin_router).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -43,4 +43,4 @@ new(Frontend) ->
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    toto_balancer:next(Balancer).
+    totochtin_balancer:next(Balancer).

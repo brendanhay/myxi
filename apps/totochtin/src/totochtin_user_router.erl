@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(toto_user_router, [Routes]).
+-module(totochtin_user_router, [Routes]).
 
--behaviour(toto_router).
+-behaviour(totochtin_router).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% Callbacks
 -export([select_balancer/2]).

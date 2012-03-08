@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(toto_sup).
+-module(totochtin_sup).
 
 -behaviour(supervisor).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% API
 -export([start_link/0]).
@@ -38,21 +38,21 @@ start_link() ->
 %% @hidden
 init([]) ->
     {ok, {{one_for_one, 3, 20},
-          [balancer_spec(B) || B <- toto:config(backends)]}}.
+          [balancer_spec(B) || B <- totochtin:config(backends)]}}.
 
 %%
 %% Private
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = toto:option(balancer, Config),
+    Mod = totochtin:option(balancer, Config),
     Args = [Name,
             Mod,
             node_addresses(Config),
-            toto:option(policies, Config)],
-    {Name, {toto_balancer, start_link, Args},
-     permanent, 2000, worker, [toto_balancer]}.
+            totochtin:option(policies, Config)],
+    {Name, {totochtin_balancer, start_link, Args},
+     permanent, 2000, worker, [totochtin_balancer]}.
 
-node_addresses(Config) -> [address(Addr) || Addr <- toto:option(nodes, Config)].
+node_addresses(Config) -> [address(Addr) || Addr <- totochtin:option(nodes, Config)].
 
-address(Addr) -> {toto:option(ip, Addr), toto:option(port, Addr)}.
+address(Addr) -> {totochtin:option(ip, Addr), totochtin:option(port, Addr)}.

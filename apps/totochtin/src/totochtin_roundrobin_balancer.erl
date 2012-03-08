@@ -9,11 +9,11 @@
 %% @doc
 %%
 
--module(toto_roundrobin_balancer).
+-module(totochtin_roundrobin_balancer).
 
--behaviour(toto_balancer).
+-behaviour(totochtin_balancer).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% Callbacks
 -export([next/1]).

@@ -9,12 +9,12 @@
 %% @doc
 %%
 
--module(toto_connection).
+-module(totochtin_connection).
 
 -behaviour(gen_server).
 -behaviour(cowboy_protocol).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% API
 -export([start_link/4,
@@ -75,8 +75,8 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 init({Client, Config}) ->
     process_flag(trap_exit, true),
     lager:info("CONN-INIT ~p", [self()]),
-    {ok, Frontend} = toto_frontend:start_link(self(), Client),
-    {ok, #s{router   = toto_router:new(Config),
+    {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
+    {ok, #s{router   = totochtin_router:new(Config),
             frontend = Frontend,
             client   = Client}}.
 
@@ -84,8 +84,8 @@ init({Client, Config}) ->
 %% @hidden
 handle_call({replay, StartOk, Replay, Protocol}, {Frontend, _Ref},
             State = #s{router = Router, frontend = Frontend}) ->
-    {Addr, Policies} = toto_router:route(Router, StartOk, Protocol),
-    {ok, Backend, Server} = toto_backend:start_link(self(), Addr, Replay),
+    {Addr, Policies} = totochtin_router:route(Router, StartOk, Protocol),
+    {ok, Backend, Server} = totochtin_backend:start_link(self(), Addr, Replay),
     {reply, ok, State#s{backend  = Backend,
                         server   = Server,
                         policies = Policies}}.
@@ -164,7 +164,7 @@ intercept(_Sock, _Data, _Channel, ignore, _Protocol, _Policies) ->
 intercept(Sock, Data, _Channel, passthrough, _Protocol, _Policies) ->
     send(Sock, Data);
 intercept(Sock, Data, Channel, Method, Protocol, Policies) ->
-    case toto_policy:thrush(Method, Policies) of
+    case totochtin_policy:thrush(Method, Policies) of
         {modified, NewMethod} ->
             lager:info("MODIFIED ~p", [NewMethod]),
             send(Sock, Channel, NewMethod, Protocol);

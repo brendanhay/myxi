@@ -1,6 +1,6 @@
--module(toto_SUITE).
+-module(totochtin_SUITE).
 
--include("toto_common_test.hrl").
+-include("totochtin_common_test.hrl").
 
 -define(PORT, 5672).
 

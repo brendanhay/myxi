@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(toto_policy).
+-module(totochtin_policy).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).

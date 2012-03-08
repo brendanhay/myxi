@@ -12,9 +12,9 @@
 %% @doc
 %%
 
--module(toto_frontend).
+-module(totochtin_frontend).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 %% API
 -export([start_link/2]).
@@ -148,7 +148,7 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{connection = Conn}) 
                                 version_minor     = Minor,
                                 server_properties = properties(Protocol),
                                 locales           = <<"en_US">>},
-    ok = toto_connection:reply(Conn, 0, Start, Protocol),
+    ok = totochtin_connection:reply(Conn, 0, Start, Protocol),
     State#s{protocol = Protocol, framing = {method, Protocol}}.
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
@@ -177,7 +177,7 @@ connection_start_ok(StartOk, State = #s{connection = Conn,
                                         replay     = Replay,
                                         protocol   = Protocol}) ->
     log("START-OK", State),
-    ok = toto_connection:replay(Conn, StartOk, Replay, Protocol),
+    ok = totochtin_connection:replay(Conn, StartOk, Replay, Protocol),
     State#s{replay = connected}.
 
 %%
@@ -236,7 +236,7 @@ parse(Data, State = #s{step         = payload,
             _Unknown ->
                 disconnect({bad_payload, Type, Channel, Size, Data}, State)
         end,
-    ok = toto_connection:forward(NewState#s.connection, [Header, Data],
+    ok = totochtin_connection:forward(NewState#s.connection, [Header, Data],
                                  Channel, NewMethod, Protocol),
     next_state(NewState, header).
 
@@ -292,4 +292,4 @@ channel_unframe(Current, Previous) ->
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
 log(Mode, #s{client = Client}) ->
-    lager:info("~s ~s -> ~p", [Mode, toto:peername(Client), self()]).
+    lager:info("~s ~s -> ~p", [Mode, totochtin:peername(Client), self()]).

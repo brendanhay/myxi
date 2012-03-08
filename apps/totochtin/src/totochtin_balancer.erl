@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--module(toto_balancer).
+-module(totochtin_balancer).
 
--include("include/toto.hrl").
+-include("include/totochtin.hrl").
 
 -behaviour(gen_server).
 
@@ -69,7 +69,7 @@ handle_call(next, _From, State = #s{mod          = Mod,
                                     addrs        = Addrs,
                                     policies = Policies}) ->
     {Addr, NewAddrs} = Mod:next(Addrs),
-    lager:info("BALANCE-NEXT ~s ~s", [Mod, toto:format_ip(Addr)]),
+    lager:info("BALANCE-NEXT ~s ~s", [Mod, totochtin:format_ip(Addr)]),
     {reply, {Addr, Policies}, State#s{addrs = NewAddrs}}.
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
