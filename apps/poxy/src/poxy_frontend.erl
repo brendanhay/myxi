@@ -1,17 +1,26 @@
+%% This Source Code Form is subject to the terms of
+%% the Mozilla Public License, v. 2.0.
+%%
+%% A copy of the MPL can be found in LICENSE in the top level or
+%% you can obtain it at http://mozilla.org/MPL/2.0/.
+%%
+%% Some code within this module was taken from RabbitMQ.
+%% The initial Developer of the Original Code is VMWare, Inc.
+%%
+%% @author Brendan Hay
+%% @copyright (c) 2012 Brendan Hay <brendan@soundcloud.com>
 %% @doc
+%%
+
 -module(poxy_frontend).
+
+-include("include/poxy.hrl").
 
 %% API
 -export([start_link/2]).
 
 %% Callbacks
 -export([init/3]).
-
--include("include/poxy.hrl").
-
--define(HANDSHAKE, 8).
--define(HEADER, 7).
--define(PAYLOAD(Len), Len + 1).
 
 -type frame_step()     :: handshake | header | payload.
 
@@ -43,6 +52,10 @@
             buf_len = 0           :: non_neg_integer(),
             recv = false          :: true | false,
             recv_len = ?HANDSHAKE :: non_neg_integer()}).
+
+-define(HANDSHAKE, 8).
+-define(HEADER, 7).
+-define(PAYLOAD(Len), Len + 1).
 
 %%
 %% API

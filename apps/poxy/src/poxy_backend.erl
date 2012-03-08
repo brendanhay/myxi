@@ -1,13 +1,23 @@
+%% This Source Code Form is subject to the terms of
+%% the Mozilla Public License, v. 2.0.
+%%
+%% A copy of the MPL can be found in LICENSE in the top level or
+%% you can obtain it at http://mozilla.org/MPL/2.0/.
+%%
+%% @author Brendan Hay
+%% @copyright (c) 2012 Brendan Hay <brendan@soundcloud.com>
 %% @doc
+%%
+
 -module(poxy_backend).
+
+-include("include/poxy.hrl").
 
 %% API
 -export([start_link/3]).
 
 %% Callbacks
 -export([init/4]).
-
--include("include/poxy.hrl").
 
 -record(s, {connection :: pid(),
             server     :: inet:socket()}).

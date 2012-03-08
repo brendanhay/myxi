@@ -1,5 +1,18 @@
+%% This Source Code Form is subject to the terms of
+%% the Mozilla Public License, v. 2.0.
+%%
+%% A copy of the MPL can be found in LICENSE in the top level or
+%% you can obtain it at http://mozilla.org/MPL/2.0/.
+%%
+%% @author Brendan Hay
+%% @copyright (c) 2012 Brendan Hay <brendan@soundcloud.com>
 %% @doc
+%%
+
 -module(poxy_balancer).
+
+-include("include/poxy.hrl").
+
 -behaviour(gen_server).
 
 %% Behaviour
@@ -16,8 +29,6 @@
          handle_info/2,
          terminate/2,
          code_change/3]).
-
--include("include/poxy.hrl").
 
 -record(s, {mod          :: module(),
             addrs        :: [addr()],
