@@ -80,7 +80,7 @@ build-plt: all
 	  --apps $(APPS) $(DEPS)
 
 dialyzer: build
-	dialyzer apps/*/ebin --plt $(PLT) $(WARNINGS) \
+	dialyzer apps/**/ebin --plt $(PLT) $(WARNINGS) \
 	  | grep -v 'lager_not_running'
 
 xref:
