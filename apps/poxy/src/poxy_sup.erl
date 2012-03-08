@@ -37,7 +37,11 @@ balancer_spec({Name, Config}) ->
     Mod = poxy:option(balancer, Config),
     Args = [Name,
             Mod,
-            poxy:option(nodes, Config),
-            poxy:option(interceptors, Config)],
+            node_addresses(Config),
+            poxy:option(policies, Config)],
     {Name, {poxy_balancer, start_link, Args},
      permanent, 2000, worker, [poxy_balancer]}.
+
+node_addresses(Config) -> [address(Addr) || Addr <- poxy:option(nodes, Config)].
+
+address(Addr) -> {poxy:option(ip, Addr), poxy:option(port, Addr)}.

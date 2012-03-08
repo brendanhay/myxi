@@ -1,5 +1,5 @@
 %% @doc
--module(poxy_interceptor).
+-module(poxy_policy).
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -24,16 +24,16 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec thrush(method(), [interceptor()]) -> {modified(), method()}.
+-spec thrush(method(), [policy()]) -> {modified(), method()}.
 %% @doc
-thrush(Method, Inters) ->
-    lists:foldl(fun modify/2, {unmodified, Method}, Inters).
+thrush(Method, Policies) ->
+    lists:foldl(fun modify/2, {unmodified, Method}, Policies).
 
 %%
 %% Private
 %%
 
--spec modify(interceptor(), {modified(), method()}) -> {modified(), method()}.
+-spec modify(policy(), {modified(), method()}) -> {modified(), method()}.
 %% @private
 modify(I, {modified, M}) ->
     {_, N} = I:modify(M),

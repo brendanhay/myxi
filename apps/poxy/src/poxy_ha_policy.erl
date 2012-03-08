@@ -1,6 +1,6 @@
 %% @doc
--module(poxy_ha_interceptor).
--behaviour(poxy_interceptor).
+-module(poxy_ha_policy).
+-behaviour(poxy_policy).
 
 %% Callbacks
 -export([modify/1]).

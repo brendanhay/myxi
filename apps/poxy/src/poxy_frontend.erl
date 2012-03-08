@@ -1,12 +1,11 @@
 %% @doc
 -module(poxy_frontend).
--behaviour(cowboy_protocol).
 
 %% API
--export([start_link/4]).
+-export([start_link/2]).
 
 %% Callbacks
--export([init/4]).
+-export([init/3]).
 
 -include("include/poxy.hrl").
 
@@ -33,16 +32,13 @@
 
 -type buffer()         :: [binary()].
 
--record(s, {backend               :: pid(),
+-record(s, {connection            :: pid(),
             client                :: inet:socket(),
-            server                :: inet:socket(),
             protocol              :: protocol() | undefined,
-            router                :: module(),
-            interceptors          :: [interceptor()],
             step = handshake      :: frame_step(),
             framing               :: frame_state() | undefined,
             payload_info          :: {binary(), integer(), integer(), integer()} | undefined,
-            replay = []           :: iolist(),
+            replay = []           :: iolist() | connected,
             buf = []              :: buffer(),
             buf_len = 0           :: non_neg_integer(),
             recv = false          :: true | false,
@@ -53,24 +49,18 @@
 %%
 
 %% @doc
--spec start_link(pid(), client(), cowboy_tcp_transport, frontend())
-                -> {ok, pid()} | ignore | {error, _}.
-start_link(Listener, Client, cowboy_tcp_transport, Config) ->
-    proc_lib:start_link(?MODULE, init, [self(), Listener, Client, Config]).
+start_link(Conn, Client) ->
+    proc_lib:start_link(?MODULE, init, [self(), Conn, Client]).
 
 %%
 %% Callbacks
 %%
 
 %% @hidden
-init(Parent, Listener, Client, Config) ->
-    lager:info("FRONTEND-INIT ~p", [self()]),
-    {ok, Backend} = poxy_backend:start_link(self(), Client),
-    ok = proc_lib:init_ack(Parent, {ok, self()}),
-    ok = cowboy:accept_ack(Listener),
-    State = #s{backend = Backend,
-               client  = Client,
-               router  = poxy_router:new(Config)},
+init(Parent, Conn, Client) ->
+    lager:info("FRONTEND-INIT ~p", [Client]),
+    proc_lib:init_ack(Parent, {ok, self()}),
+    State = #s{connection = Conn, client = Client},
     next_state(State, handshake).
 
 %%
@@ -104,8 +94,8 @@ read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
 
 -spec update_replay(binary(), #s{}) -> #s{}.
 %% @private
-update_replay(_Data, State) when is_pid(State#s.server) ->
-    State#s{replay = []};
+update_replay(_Data, State = #s{replay = connected}) ->
+    State;
 update_replay(Data, State = #s{replay = Replay}) ->
     State#s{replay = [Data|Replay]}.
 
@@ -129,10 +119,8 @@ next_state(State = #s{payload_info = {_Header, _Type, _Channel, Size}}, payload)
 
 -spec disconnect(any(), #s{}) -> no_return().
 %% @private
-disconnect(Error, #s{backend = Backend, server = Server, client = Client}) ->
+disconnect(Error, #s{}) ->
     lager:error("FRONTEND-ERR ~p", [Error]),
-    poxy:disconnect([Server, Client]),
-    exit(Backend, frontend_disconnect),
     exit(normal).
 
 %%
@@ -141,13 +129,13 @@ disconnect(Error, #s{backend = Backend, server = Server, client = Client}) ->
 
 -spec connection_start(version(), protocol(), #s{}) -> #s{}.
 %% @private
-connection_start({Major, Minor, _Rev}, Protocol, State = #s{client = Client}) ->
+connection_start({Major, Minor, _Rev}, Protocol, State = #s{connection = Conn}) ->
     log("START", State),
     Start = #'connection.start'{version_major     = Major,
                                 version_minor     = Minor,
                                 server_properties = properties(Protocol),
                                 locales           = <<"en_US">>},
-    ok = poxy_writer:send(Client, 0, Start, Protocol),
+    ok = poxy_connection:reply(Conn, 0, Start, Protocol),
     State#s{protocol = Protocol, framing = {method, Protocol}}.
 
 -spec properties(rabbit_framing:protocol()) -> rabbit_framing:amqp_table().
@@ -172,14 +160,12 @@ capabilities(_) ->
 
 -spec connection_start_ok(binary(), #s{}) -> #s{}.
 %% @private
-connection_start_ok(StartOk, State = #s{backend  = Backend,
-                                        router   = Router,
-                                        replay   = Replay,
-                                        protocol = Protocol}) ->
+connection_start_ok(StartOk, State = #s{connection = Conn,
+                                        replay     = Replay,
+                                        protocol   = Protocol}) ->
     log("START-OK", State),
-    {Addr, Inters} = poxy_router:route(Router, StartOk, Protocol),
-    {ok, Server} = poxy_backend:connect(Backend, Addr, Replay),
-    State#s{server = Server, interceptors = Inters, replay = []}.
+    ok = poxy_connection:replay(Conn, StartOk, Replay, Protocol),
+    State#s{replay = connected}.
 
 %%
 %% Parsing
@@ -214,7 +200,6 @@ parse(Data, State = #s{step = header}) ->
     end;
 
 parse(Data, State = #s{step         = payload,
-                       interceptors = Inters,
                        payload_info = {Header, Type, Channel, Size},
                        protocol     = Protocol,
                        framing      = FrameState}) ->
@@ -238,8 +223,8 @@ parse(Data, State = #s{step         = payload,
             _Unknown ->
                 disconnect({bad_payload, Type, Channel, Size, Data}, State)
         end,
-    ok = poxy_writer:forward(NewState#s.server, [Header, Data], Channel,
-                             NewMethod, Protocol, Inters),
+    ok = poxy_connection:forward(NewState#s.connection, [Header, Data],
+                                 Channel, NewMethod, Protocol),
     next_state(NewState, header).
 
 %%
@@ -293,9 +278,5 @@ channel_unframe(Current, Previous) ->
 
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, #s{client = Client, server = undefined}) ->
-    lager:info("~s ~s -> ~p",
-               [Mode, poxy:peername(Client), self()]);
-log(Mode, #s{client = Client, server = Server}) ->
-    lager:info("~s ~s -> ~p -> ~s",
-               [Mode, poxy:peername(Client), self(), poxy:peername(Server)]).
+log(Mode, #s{client = Client}) ->
+    lager:info("~s ~s -> ~p", [Mode, poxy:peername(Client), self()]).

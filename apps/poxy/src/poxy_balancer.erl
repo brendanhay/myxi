@@ -21,7 +21,7 @@
 
 -record(s, {mod          :: module(),
             addrs        :: [addr()],
-            interceptors :: [interceptor()]}).
+            policies :: [policy()]}).
 %%
 %% Behaviour
 %%
@@ -35,12 +35,12 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
-start_link(Name, Mod, Addrs, Inters) ->
-    lager:info("BALANCE-START ~s ~s", [Name, Mod]),
-    State = #s{mod = Mod, addrs = Addrs, interceptors = Inters},
+start_link(Name, Mod, Addrs, Policies) ->
+    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Addrs]),
+    State = #s{mod = Mod, addrs = Addrs, policies = Policies},
     gen_server:start_link({local, Name}, ?MODULE, State, []).
 
--spec next(pid()) -> {addr(), [interceptor()]}.
+-spec next(pid()) -> {addr(), [policy()]}.
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 
@@ -52,14 +52,14 @@ init(State) ->
     process_flag(trap_exit, true),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{}) -> {reply, {addr(), [interceptor()]}, #s{}}.
+-spec handle_call(next, reference(), #s{}) -> {reply, {addr(), [policy()]}, #s{}}.
 %% @hidden
 handle_call(next, _From, State = #s{mod          = Mod,
                                     addrs        = Addrs,
-                                    interceptors = Inters}) ->
+                                    policies = Policies}) ->
     {Addr, NewAddrs} = Mod:next(Addrs),
-    lager:info("BALANCE-NEXT ~s ~s", [Mod, poxy:format_addr(Addr)]),
-    {reply, {Addr, Inters}, State#s{addrs = NewAddrs}}.
+    lager:info("BALANCE-NEXT ~s ~s", [Mod, poxy:format_ip(Addr)]),
+    {reply, {Addr, Policies}, State#s{addrs = NewAddrs}}.
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden

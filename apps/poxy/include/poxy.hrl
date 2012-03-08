@@ -12,9 +12,9 @@
 -type version()      :: {0 | 8,0 | 9,0 | 1}.
 -type options()      :: [proplists:property()].
 
--type addr()         :: [{ip, string()} | {port, inet:port_number()}].
+-type addr()         :: [{inet:ip_address(), inet:port_number()}].
 
--type interceptor() :: module().
+-type policy() :: poxy_ha_policy.
 
 -type router()       :: poxy_user_router.
 
@@ -23,7 +23,7 @@
 -type frontend()     :: [{ip, string()} |
                          {port, pos_integer()} |
                          {max, pos_integer()} |
-                         {interceptors, [interceptor()]} |
+                         {policys, [policy()]} |
                          {route, router(), [any()]}].
 
 -type backend()      :: [{atom(),

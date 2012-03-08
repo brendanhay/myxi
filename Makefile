@@ -18,15 +18,26 @@ build:
 	$(REBAR) compile
 	$(MAKE) xref
 
-test: build
-	$(REBAR) skip_deps=true eunit
-
 package: all
 	rm -rf rel/package
 	$(REBAR) generate -f
 
 doc:
 	$(REBAR) skip_deps=true doc
+
+#
+# Tests
+#
+
+unit: build
+	rm -rf apps/rist/.eunit
+	$(REBAR) eunit skip_deps=true suite=$(T)
+
+integration: build
+	rm -rf apps/rist/logs
+	$(REBAR) ct skip_deps=true suites=$(T)
+
+test: unit integration
 
 #
 # Run

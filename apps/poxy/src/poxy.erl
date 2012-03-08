@@ -9,9 +9,7 @@
          option/2,
          format_ip/1,
          format_ip/2,
-         format_addr/1,
-         peername/1,
-         disconnect/1]).
+         peername/1]).
 
 %% Callbacks
 -export([start/2,
@@ -52,6 +50,8 @@ option(Key, Opts) ->
 
 -spec format_ip([proplists:property()]) -> string().
 %% @doc
+format_ip({Ip, Port}) ->
+    format_ip(Ip, Port);
 format_ip(Opts) ->
     format_ip(option(ip, Opts), option(port, Opts)).
 
@@ -61,12 +61,6 @@ format_ip({A, B, C, D}, Port) ->
     Io = io_lib:fwrite("~p.~p.~p.~p:~p", [A, B, C, D, Port]),
     binary_to_list(iolist_to_binary(Io)).
 
--spec format_addr(addr()) -> string().
-%% @doc
-format_addr(Addr) ->
-    {Ip, Port} = {option(ip, Addr), option(port, Addr)},
-    format_ip(Ip, Port).
-
 -spec peername(inet:socket()) -> string().
 %% @doc
 peername(Sock) ->
@@ -75,13 +69,6 @@ peername(Sock) ->
         _Error           -> "DISCONN"
     end.
 
-%% @doc
-disconnect(Sockets) ->
-    [begin
-         catch poxy_writer:send(S, <<"AMQP", 0, 0, 9, 1>>),
-         catch gen_tcp:close(S)
-     end || S <- Sockets].
-
 %%
 %% Callbacks
 %%
@@ -89,7 +76,7 @@ disconnect(Sockets) ->
 -spec start(normal, _) -> ignore | {error, _} | {ok, pid()}.
 %% @hidden
 start(normal, _Args) ->
-    start_frontends(),
+    start_listeners(),
     poxy_sup:start_link().
 
 -spec stop(_) -> ok.
@@ -124,16 +111,16 @@ lookup_option(Key, Opts) ->
     {Key, Value} = lists:keyfind(Key, 1, Opts),
     Value.
 
--spec start_frontends() -> [{ok, pid()}].
+-spec start_listeners() -> [{ok, pid()}].
 %% @private
-start_frontends() -> [frontend(Opts) || Opts <- config(frontends)].
+start_listeners() -> [listener(Opts) || Opts <- config(frontends)].
 
--spec frontend(frontend()) -> {ok, pid()}.
+-spec listener(frontend()) -> {ok, pid()}.
 %% @private
-frontend(Config) ->
+listener(Config) ->
     Tcp = [{ip, option(ip, Config)},
            {port, option(port, Config)}|config(tcp)],
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Config),
                           cowboy_tcp_transport, Tcp,
-                          poxy_frontend, Config).
+                          poxy_connection, Config).
