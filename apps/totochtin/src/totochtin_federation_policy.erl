@@ -36,13 +36,21 @@ handle(Backend, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
             lager:error("QUEUE-EX-BIND ~s not found", [Queue, Exchange]),
             false;
         Backend ->
-            lager:info("QUEUE-EX-BIND ~s found on ~s", [Exchange, Backend]),
+            %% Same, alles ok
+            lager:notice("FED-EXIST ~s found on ~s", [Exchange, Backend]),
+            false;
+        Other ->
+            %% Federate!
+            lager:notice("FED-FEDERATE ~s found on ~s but current is ~s",
+                         [Exchange, Other, Backend]),
             false
     end;
+
     %% If not the current one, federate
 handle(Backend, #'exchange.declare'{exchange = Exchange}) ->
     %% Store the exchange in the topology map
     totochtin_topology:add_exchange(Exchange, Backend),
     false;
+
 handle(_Backend, _Policy) ->
     false.

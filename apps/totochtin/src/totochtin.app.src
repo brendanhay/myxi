@@ -32,8 +32,8 @@
              {port, 5673},
              {max, 10},
              {router, totochtin_user_router, [
-                 [{user, <<"activities">>}, {backend, soundcloud}],
-                 [{user, <<"guest">>}, {backend, soundcloud}]
+                 [{user, <<"guest">>}, {backend, activities}],
+                 [{user, <<"activities">>}, {backend, soundcloud}]
              ]}]
         ]},
 
@@ -42,8 +42,17 @@
             {soundcloud, [
                 {balancer, totochtin_roundrobin_balancer},
                 {policies, [
-                    totochtin_federation_policy,
-                    totochtin_ha_policy
+                    totochtin_federation_policy
+                ]},
+                {nodes, [
+                    [{ip, "127.0.0.1"}, {port, 5672}]
+                ]}
+            ]},
+
+            {activities, [
+                {balancer, totochtin_roundrobin_balancer},
+                {policies, [
+                    totochtin_federation_policy
                 ]},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]

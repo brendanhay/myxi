@@ -45,10 +45,10 @@ add_exchange(Name, Backend) ->
     ets:insert(?TABLE, {Name, Backend, exchange}).
 
 find_exchange(Name) ->
-    %% TODO: Currently undefined if multiple exchanges declared
+    %% Currently undefined if multiple exchanges declared
     %% on different backends with the same name
     case ets:match(?TABLE, {Name, '$1', exchange}) of
-        [[B]] -> B;
+        [[B]|_] -> B;
         []    -> false
     end.
 

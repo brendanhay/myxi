@@ -129,11 +129,9 @@ closing({forward, _Raw, _Channel, _Method, _Protocol}, State) ->
     {next_state, closing, State, ?TIMEOUT}.
 
 handle_event(_Event, StateName, State) ->
-    lager:info("EVENT"),
     {next_state, StateName, State}.
 
 handle_sync_event(_Event, _From, StateName, State) ->
-    lager:info("SYNC-EVENT"),
     {reply, ok, StateName, State}.
 
 %% @hidden
