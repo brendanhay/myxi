@@ -15,7 +15,7 @@
 -include("include/totochtin.hrl").
 
 %% Callbacks
--export([modify/3]).
+-export([intercept/1]).
 
 -define(KEY, <<"x-ha-policy">>).
 
@@ -23,10 +23,14 @@
 %% Callbacks
 %%
 
--spec modify(atom(), pid(), method()) -> totochtin_policy:return().
+-spec intercept(#policy{}) -> method().
 %% @doc
-modify(_Current, _Topology, Method = #'queue.declare'{arguments = Args}) ->
-    NewArgs = lists:keystore(?KEY, 1, Args, {?KEY, longstr, <<"all">>}),
-    {modified, Method#'queue.declare'{arguments = NewArgs}};
-modify(_Current, _Topology, Method) ->
-    {unmodified, Method}.
+intercept(Policy = #policy{method = Method}) ->
+    case Method of
+         #'queue.declare'{queue = Q, arguments = Args} ->
+            lager:info("HA-POLICY ~s", [Q]),
+            NewArgs = lists:keystore(?KEY, 1, Args, {?KEY, longstr, <<"all">>}),
+            Policy#policy{method = Method#'queue.declare'{arguments = NewArgs}};
+        _Other ->
+            Policy
+    end.

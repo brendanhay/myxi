@@ -16,40 +16,45 @@
 -export([behaviour_info/1]).
 
 %% API
--export([thrush/2]).
-
--type modified() :: modified | unmodified.
--type return()   :: {modified(), method()}.
-
--export_types([modified/0,
-               return/0]).
+-export([handler/4]).
 
 %%
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{modify, 3}] | undefined.
+-spec behaviour_info(_) -> [{intercept, 1}] | undefined.
 %% @hidden
-behaviour_info(callbacks) -> [{modify, 3}];
+behaviour_info(callbacks) -> [{intercept, 1}];
 behaviour_info(_Other)    -> undefined.
 
 %%
 %% API
 %%
 
--spec thrush(atom(), method(), [{atom(), pid(), policy()}]) -> return().
+-spec handler(atom(), ets:tid(), protocol(), [policy()])
+             -> fun((method()) -> method() | false).
 %% @doc
-thrush(Method, Policies) ->
-    lists:foldl(fun modify/2, {unmodified, Method}, Policies).
-
+handler(Current, Topology, Protocol, Policies) ->
+    Fn = compose([fun(A) -> P:intercept(A) end || P <- Policies]),
+    Args = #policy{backend = Current, topology = Topology, protocol = Protocol},
+    fun(M) -> compare(M, Fn(Args#policy{method = M})) end.
 %%
 %% Private
 %%
 
--spec modify({atom(), pid(), policy()}, {modified(), method()}) -> return().
+-spec compose([fun()]) -> fun().
 %% @private
-modify({Current, Topology, Policy}, {unmodified, Method}) ->
-    Policy:modify(Method, Current, Topology);
-modify({Current, Topology, Policy}, {modified, Method}) ->
-    {_, NewMethod} = Policy:modify(Method, Current, Topology),
-    {modified, NewMethod}.
+compose(Fns) -> lists:foldl(fun compose/2, fun(X) -> X end, Fns).
+
+-spec compose(fun(), fun()) -> fun().
+%% @private
+compose(F, G) -> fun(X) -> F(G(X)) end.
+
+-spec compare(method(), #policy{}) -> method() | false.
+%% @private
+compare(Original, #policy{method = New}) ->
+    case New =/= Original of
+        true  -> New;
+        false -> false
+    end.
+

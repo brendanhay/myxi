@@ -31,12 +31,13 @@
          code_change/3]).
 
 -record(s, {router   :: router(),
+            topology :: ets:tid(),
+            policy   :: fun((method()) -> method() | false),
             listener :: pid(),
             backend  :: pid(),
             frontend :: pid(),
             client   :: inet:socket(),
-            server   :: inet:socket(),
-            policies :: [policy()]}).
+            server   :: inet:socket()}).
 
 %%
 %% API
@@ -81,7 +82,7 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
-    totochtin_stats:connected(self()),
+    totochtin_stats:connect(self()),
     {ok, #s{router   = totochtin_router:new(Config),
             listener = Listener,
             client   = Client}}.
@@ -89,12 +90,16 @@ init({Listener, Client, Config}) ->
 -spec handle_call(_, _, #s{}) -> {reply, ok, #s{}}.
 %% @hidden
 handle_call({replay, StartOk, Replay, Protocol}, {Frontend, _Ref},
-            State = #s{router = Router, frontend = Frontend}) ->
+            State = #s{router = Router, topology = Topology, frontend = Frontend}) ->
+    %% Get a server address according to the routing and relevant balancer
     {Name, Addr, Policies} = totochtin_router:route(Router, StartOk, Protocol),
-    {ok, Backend, Server} = totochtin_backend:start_link(self(), Addr, Replay),
-    {reply, ok, State#s{backend  = Backend,
-                        server   = Server,
-                        policies = [{Name, ?TOPOLOGY_STORE, P} || P <- Policies]}}.
+    %% Start a backend, replaying the previous client data to the server
+    {ok, Pid, Sock} = totochtin_backend:start_link(self(), Addr, Replay),
+    %% Create a fun composed of all available policies
+    Handler = totochtin_policy:handler(Name, Topology, Protocol, Policies),
+    {reply, ok, State#s{backend = Pid,
+                        server  = Sock,
+                        policy  = Handler}}.
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden
@@ -106,10 +111,9 @@ handle_cast({reply, Channel, Method, Protocol}, State = #s{client = Client})
   when is_port(Client) ->
     ok = send(Client, Channel, Method, Protocol),
     {noreply, State};
-handle_cast({forward, Raw, Channel, Method, Protocol},
-            State = #s{server = Server, policies = Policies})
+handle_cast({forward, Raw, Channel, Method, Protocol}, State = #s{server = Server})
   when is_port(Server) ->
-    ok = intercept(Server, Raw, Channel, Method, Protocol, Policies),
+    ok = intercept(Raw, Channel, Method, Protocol, State),
     {noreply, State}.
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
@@ -157,23 +161,17 @@ send(Sock, Channel, Method, Protocol) ->
         rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
     send(Sock, Frame).
 
--spec intercept(inet:socket(), iolist(), non_neg_integer(),
-                ignore | passthrough | method(), protocol(), [policy()]) -> ok.
+-spec intercept(iolist(), non_neg_integer(), ignore | passthrough | method(),
+                protocol(), #s{}) -> ok.
 %% @private
-intercept(_Data, _Channel, ignore, _State) ->
+intercept(_Data, _Channel, ignore, _Protocol, _State) ->
     ok;
-intercept(Data, _Channel, passthrough, #s{server = Server}) ->
+intercept(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
-intercept(Data, Channel, Method, #s{server       = Server,
-                                    backend_name = Name,
-                                    protocol     = Protocol,
-                                    policies     = Policies}) ->
-    case totochtin_policy:thrush(Name, Method, Policies) of
-        {modified, NewMethod} ->
-            lager:info("MODIFIED ~p", [NewMethod]),
-            send(Sock, Channel, NewMethod, Protocol);
-        {unmodified, Method} ->
-            send(Sock, Data)
+intercept(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
+    case Policy(Method) of
+        false     -> send(Server, Data);
+        NewMethod -> send(Server, Channel, NewMethod, Protocol)
     end.
 
 -spec close_client(#s{}) -> ok.
@@ -191,7 +189,9 @@ close_server(#s{backend = Backend, server = undefined}) ->
     ok;
 close_server(#s{backend = Backend, server = Server}) ->
     exit(Backend, kill),
-    Close = #'connection.close'{reply_text = <<"Goodbye">>, reply_code = 200,
-                                class_id  = 0, method_id = 0},
+    Close = #'connection.close'{reply_text = <<"Goodbye">>,
+                                reply_code = 200,
+                                class_id   = 0,
+                                method_id  = 0},
     rabbit_writer:internal_send_command(Server, 0, Close, rabbit_framing_amqp_0_9_1),
     gen_tcp:close(Server).

@@ -46,6 +46,15 @@
 -type method()       :: rabbit_framing:amqp_method_record().
 
 %%
+%% Records
+%%
+
+-record(policy, {method   :: method | undefined,
+                 backend  :: atom(),
+                 topology :: ets:tid(),
+                 protocol :: protocol()}).
+
+%%
 %% GProc
 %%
 

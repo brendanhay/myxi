@@ -16,7 +16,8 @@
 
 %% API
 -export([start_link/2,
-         connected/1]).
+         connect/1,
+         counter/2]).
 
 %% Callbacks
 -export([init/1,
@@ -26,10 +27,8 @@
          terminate/2,
          code_change/3]).
 
--type message() :: {connected, pid(), erlang:timestamp()} |
-                   {disconnected, pid(),
-                    frontend_disconnected | backend_disconnected,
-                    erlang:timestamp()}.
+-type message() :: {connect, pid(), erlang:timestamp()} |
+                   {counter, atom(), pos_integer()}.
 
 -record(s, {sock               :: gen_udp:socket(),
             host = "localhost" :: string(),
@@ -49,8 +48,13 @@ start_link(Ns, Url) ->
 %% Stats
 %%
 
+-spec connect(pid()) -> ok.
 %% @doc
-connected(Conn) -> cast({connected, Conn, now()}).
+connect(Conn) -> cast({connect, Conn, now()}).
+
+-spec counter(atom(), pos_integer()) -> ok.
+%% @doc
+counter(Stat, Step) -> cast({counter, Stat, Step}).
 
 %%
 %% Callbacks
@@ -69,12 +73,16 @@ init({Ns, Url}) ->
 %% @hidden
 handle_call(_Msg, _From, State) -> {reply, ok, State}.
 
--spec handle_cast(message(), #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
+-spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
 %% listener creates a totochtin_connection
-handle_cast({connected, Conn, Started}, State) ->
+handle_cast({connect, Conn, Started}, State) ->
     gproc:reg(?PROP(Conn), Started),
     monitor(process, Conn),
     stat(State, counter, connect, 1),
+    {noreply, State};
+%% miscellaneous counter increment
+handle_cast({counter, Stat, Step}, State) ->
+    stat(State, counter, Stat, Step),
     {noreply, State}.
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}}.
@@ -83,11 +91,11 @@ handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
     Started = gproc:get_value(?PROP(Conn)),
     gproc:unreg(?PROP(Conn)),
     Status = case Reason of
-                 normal -> complete;
-                 _Other -> error
+                 normal -> disconnect.soft;
+                 _Other -> disconnect.hard
              end,
-    stat(State, timer, Status, now_diff(now(), Started)),
-    stat(State, counter, connect, -1),
+    stat(State, timer, duration, now_diff(now(), Started)),
+    stat(State, counter, Status, 1),
     {noreply, State}.
 
 -spec terminate(_, #s{}) -> ok.

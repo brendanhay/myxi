@@ -64,8 +64,8 @@ init(State) ->
 
 -spec handle_call(next, reference(), #s{}) -> {reply, {addr(), [policy()]}, #s{}}.
 %% @hidden
-handle_call(next, _From, State = #s{mod          = Mod,
-                                    addrs        = Addrs,
+handle_call(next, _From, State = #s{mod      = Mod,
+                                    addrs    = Addrs,
                                     policies = Policies}) ->
     {Addr, NewAddrs} = Mod:next(Addrs),
     lager:info("BALANCE-NEXT ~s ~s", [Mod, totochtin:format_ip(Addr)]),

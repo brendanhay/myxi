@@ -36,9 +36,18 @@ start_link() ->
 -spec init([]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init([]) ->
+    Topology = topology_spec(),
     Stats = stats_spec(totochtin:config(statsd)),
     Balancers = [balancer_spec(B) || B <- totochtin:config(backends)],
-    {ok, {{one_for_one, 3, 20}, [Stats|Balancers]}}.
+    {ok, {{one_for_one, 3, 20}, [Topology, Stats|Balancers]}}.
+
+%%
+%% Topology Map
+%%
+
+topology_spec() ->
+    {topology, {totochtin_topology, start_link, []},
+     permanent, 2000, worker, [totochtin_topology]}.
 
 %%
 %% Grpoc, Graphite

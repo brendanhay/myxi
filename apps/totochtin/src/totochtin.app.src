@@ -22,7 +22,7 @@
         %% namespace - the prefix to prepend to statsd keys
         %% url - <host:port> for udp connection
         {statsd, [
-            {namespace, "centzon.totochtin"},
+            {namespace, "toto"},
             {url, 'STATSD_URL'}
         ]},
 
@@ -41,7 +41,10 @@
         {backends, [
             {soundcloud, [
                 {balancer, totochtin_roundrobin_balancer},
-                {policies, [totochtin_ha_policy]},
+                {policies, [
+                    totochtin_federation_policy,
+                    totochtin_ha_policy
+                ]},
                 {nodes, [
                     [{ip, "127.0.0.1"}, {port, 5672}]
                 ]}

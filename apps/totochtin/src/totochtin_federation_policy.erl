@@ -15,19 +15,34 @@
 -include("include/totochtin.hrl").
 
 %% Callbacks
--export([modify/1]).
+-export([intercept/1]).
 
 %%
 %% Callbacks
 %%
 
--spec modify(atom(), pid(), method()) -> totochtin_policy:return().
+-spec intercept(#policy{}) -> method().
 %% @doc
-modify(Method = #'queue.declare'{queue = Queue}) ->
-    {unmodified, Method};
+intercept(Policy = #policy{backend = Backend, method = Method}) ->
+    case handle(Backend, Method) of
+        false ->
+            Policy
+    end.
 
-modify(Method = #'queue.bind'{queue = Queue, exchange = Exchange}) ->
-    {unmodified, Method};
-
-modify(Method) ->
-    {unmodified, Method}.
+handle(Backend, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
+    %% Find which Backend, Exchange lives on
+    case totochtin_topology:find_exchange(Exchange) of
+        false ->
+            lager:error("QUEUE-EX-BIND ~s not found", [Queue, Exchange]),
+            false;
+        Backend ->
+            lager:info("QUEUE-EX-BIND ~s found on ~s", [Exchange, Backend]),
+            false
+    end;
+    %% If not the current one, federate
+handle(Backend, #'exchange.declare'{exchange = Exchange}) ->
+    %% Store the exchange in the topology map
+    totochtin_topology:add_exchange(Exchange, Backend),
+    false;
+handle(_Backend, _Policy) ->
+    false.
