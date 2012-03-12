@@ -18,7 +18,7 @@
 -export([behaviour_info/1]).
 
 %% API
--export([start_link/4,
+-export([start_link/5,
          next/1]).
 
 %% Callbacks
@@ -29,9 +29,19 @@
          terminate/2,
          code_change/3]).
 
--record(s, {mod          :: module(),
-            addrs        :: [addr()],
-            policies :: [policy()]}).
+-type check() :: check_up | check_down.
+
+-record(s, {mod       :: module(),
+            up        :: [endpoint()],
+            down = [] :: [endpoint()],
+            policies  :: [policy()]}).
+
+-define(UP,         check_up).
+-define(UP_INTER,   5000).
+
+-define(DOWN,       check_down).
+-define(DOWN_INTER, 12000).
+
 %%
 %% Behaviour
 %%
@@ -45,12 +55,15 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
-start_link(Name, Mod, Addrs, Policies) ->
-    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Addrs]),
-    State = #s{mod = Mod, addrs = Addrs, policies = Policies},
-    gen_server:start_link({local, Name}, ?MODULE, State, []).
+-spec start_link(pid(), module(), [endpoint()], [policy()], pos_integer())
+                -> {ok, pid()} | {error, _} | ignore.
+%% @doc
+start_link(Name, Mod, Nodes, Policies, Delay) ->
+    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Nodes]),
+    State = #s{mod = Mod, up = Nodes, policies = Policies},
+    gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
--spec next(pid()) -> {addr(), [policy()]}.
+-spec next(pid()) -> {address(), [policy()]} | down.
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 
@@ -58,26 +71,35 @@ next(Pid) -> gen_server:call(Pid, next).
 %% Callbacks
 %%
 
-init(State) ->
+-spec init({#s{}, pos_integer()}) -> {ok, #s{}}.
+%% @hidden
+init({State, Delay}) ->
     process_flag(trap_exit, true),
+    init_timers(Delay),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{}) -> {reply, {addr(), [policy()]}, #s{}}.
+-spec handle_call(next, reference(), #s{})
+                 -> {reply, {address(), [policy()]} | down, #s{}}.
 %% @hidden
-handle_call(next, _From, State = #s{mod      = Mod,
-                                    addrs    = Addrs,
-                                    policies = Policies}) ->
-    {Addr, NewAddrs} = Mod:next(Addrs),
-    lager:info("BALANCE-NEXT ~s ~s", [Mod, totochtin:format_ip(Addr)]),
-    {reply, {Addr, Policies}, State#s{addrs = NewAddrs}}.
+handle_call(next, _From, State = #s{mod = Mod, up = Up, policies = Policies}) ->
+    {Next, Shuffled} = Mod:next(Up),
+    Selected =
+        case Next of
+            {_Node, Host, Port} -> {{Host, Port}, Policies};
+            down                -> down
+        end,
+    {reply, Selected, State#s{up = Shuffled}}.
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden
 handle_cast(_Msg, State) -> {noreply, State}.
 
--spec handle_info(_, #s{}) -> {noreply, #s{}} | {stop, normal, #s{}}.
+-spec handle_info(check(), #s{}) -> {noreply, #s{}}.
 %% @hidden
-handle_info(_Info, State) -> {noreply, State}.
+handle_info(Check, State) ->
+    NewState = health_check(Check, State),
+    set_timer(Check),
+    {noreply, NewState}.
 
 -spec terminate(_, #s{}) -> ok.
 %% @hidden
@@ -86,3 +108,51 @@ terminate(_Reason, _State) -> ok.
 -spec code_change(_, #s{}, _) -> {ok, #s{}}.
 %% @hidden
 code_change(_OldVsn, State, _Extra) -> {ok, State}.
+
+%%
+%% Private
+%%
+
+-spec init_timers(pos_integer()) -> ok.
+%% @private
+init_timers(Delay) ->
+    set_timer(Delay, ?UP),
+    set_timer(Delay + ?DOWN_INTER, ?DOWN),
+    ok.
+
+-spec set_timer(check()) -> reference().
+%% @private
+set_timer(?UP)   -> set_timer(?UP_INTER, ?UP);
+set_timer(?DOWN) -> set_timer(?DOWN_INTER, ?DOWN).
+
+-spec set_timer(pos_integer(), check()) -> reference().
+%% @private Since a pid is used, the timer doesn't need to be canceled
+set_timer(Interval, Check) -> erlang:send_after(Interval, self(), Check).
+
+-spec health_check(check(), #s{}) -> #s{}.
+%% @private
+health_check(?UP, State = #s{up = []}) ->
+    State;
+health_check(?UP, State = #s{up = Up, down = Down}) ->
+    {NewUp, AddDown} = check(Up),
+    State#s{up = NewUp, down = Down ++ AddDown};
+health_check(?DOWN, State = #s{down = []}) ->
+    State;
+health_check(?DOWN, State = #s{up = Up, down = Down}) ->
+    {AddUp, NewDown} = check(Down),
+    lager:info("BALANCE-DOWN ~p ~p", [self(), NewDown]),
+    State#s{up = Up ++ AddUp, down = NewDown}.
+
+-spec check([node()]) -> {[node()], [node()]}.
+%% @private
+check(Nodes) -> check(Nodes, [], []).
+
+-spec check([node()], [node()], [node()]) -> {[node()], [node()]}.
+%% @private
+check([], Up, Down) ->
+    {lists:reverse(Up), lists:reverse(Down)};
+check([N = {Node, _Host, _Port}|T], Up, Down) ->
+    case net_adm:ping(Node) of
+        pong -> check(T, [N|Up], Down);
+        pang -> check(T, Up, [N|Down])
+    end.

@@ -36,6 +36,8 @@ start_link() ->
 -spec init([]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init([]) ->
+    %% Used to ensure balancer check starts are delayed
+    random:seed(erlang:now()),
     Topology = topology_spec(),
     Stats = stats_spec(totochtin:config(statsd)),
     Balancers = [balancer_spec(B) || B <- totochtin:config(backends)],
@@ -68,10 +70,13 @@ balancer_spec({Name, Config}) ->
     Args = [Name,
             Mod,
             node_addresses(Config),
-            totochtin:option(policies, Config)],
+            totochtin:option(policies, Config),
+            random:uniform(8000)],
     {Name, {totochtin_balancer, start_link, Args},
      permanent, 2000, worker, [totochtin_balancer]}.
 
-node_addresses(Config) -> [address(Addr) || Addr <- totochtin:option(nodes, Config)].
+node_addresses(Config) -> [address(Node) || Node <- totochtin:option(nodes, Config)].
 
-address(Addr) -> {totochtin:option(ip, Addr), totochtin:option(port, Addr)}.
+address(Node) ->
+    Host = totochtin:option(node, Node),
+    {Host, totochtin:hostname(Host), totochtin:option(port, Node)}.

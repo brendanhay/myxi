@@ -45,7 +45,8 @@
                     totochtin_federation_policy
                 ]},
                 {nodes, [
-                    [{ip, "127.0.0.1"}, {port, 5672}]
+                    [{node, 'rabbit@13inches'},
+                     {port,  5672}]
                 ]}
             ]},
 
@@ -55,7 +56,8 @@
                     totochtin_federation_policy
                 ]},
                 {nodes, [
-                    [{ip, "127.0.0.1"}, {port, 5672}]
+                    [{node, 'rabbit@13inches'},
+                     {port, 5672}]
                 ]}
             ]}
         ]}

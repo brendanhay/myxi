@@ -16,34 +16,35 @@
 %% Types
 %%
 
--type version()      :: {0 | 8,0 | 9,0 | 1}.
--type options()      :: [proplists:property()].
+-type version()  :: {0 | 8,0 | 9,0 | 1}.
+-type options()  :: [proplists:property()].
 
--type addr()         :: {inet:ip_address(), inet:port_number()}.
+-type address()  :: {inet:ip_address(), inet:port_number()}.
+-type endpoint() :: {node(), inet:hostname(), inet:port_number()}.
 
--type policy() :: totochtin_ha_policy.
+-type policy()   :: totochtin_ha_policy.
 
--type router()       :: totochtin_user_router.
+-type router()   :: totochtin_user_router.
 
--type balancer()     :: totochtin_round_robin.
+-type balancer() :: totochtin_round_robin.
 
--type frontend()     :: [{ip, string()} |
-                         {port, pos_integer()} |
-                         {max, pos_integer()} |
-                         {policys, [policy()]} |
-                         {route, router(), [any()]}].
+-type frontend() :: [{ip, string()} |
+                     {port, pos_integer()} |
+                     {max, pos_integer()} |
+                     {policys, [policy()]} |
+                     {route, router(), [any()]}].
 
--type backend()      :: [{atom(),
-                          {balance, balancer()} |
-                          {nodes, [addr()]}}].
+-type backend()  :: [{atom(),
+                      {balance, balancer()} |
+                      {nodes, [endpoint()]}}].
 
--type client()       :: inet:socket().
--type server()       :: inet:socket().
+-type client()   :: inet:socket().
+-type server()   :: inet:socket().
 
--type user()         :: binary().
+-type user()     :: binary().
 
--type protocol()     :: rabbit_framing:protocol().
--type method()       :: rabbit_framing:amqp_method_record().
+-type protocol() :: rabbit_framing:protocol().
+-type method()   :: rabbit_framing:amqp_method_record().
 
 %%
 %% Records
@@ -51,7 +52,7 @@
 
 -record(policy, {method   :: method | undefined,
                  backend  :: atom(),
-                 topology :: ets:tid(),
+                 address  :: address(),
                  protocol :: protocol()}).
 
 %%

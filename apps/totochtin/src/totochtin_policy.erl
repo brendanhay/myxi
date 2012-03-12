@@ -31,13 +31,16 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec handler(atom(), ets:tid(), protocol(), [policy()])
+-spec handler(atom(), address(), protocol(), [policy()])
              -> fun((method()) -> method() | false).
 %% @doc
-handler(Current, Topology, Protocol, Policies) ->
+handler(Backend, Address, Protocol, Policies) ->
     Fn = compose([fun(A) -> P:intercept(A) end || P <- Policies]),
-    Args = #policy{backend = Current, topology = Topology, protocol = Protocol},
+    Args = #policy{backend  = Backend,
+                   address  = Address,
+                   protocol = Protocol},
     fun(M) -> compare(M, Fn(Args#policy{method = M})) end.
+
 %%
 %% Private
 %%

@@ -39,9 +39,11 @@ new(Frontend) ->
     Mod:new(Routes).
 
 -spec route(router(), #'connection.start_ok'{}, protocol())
-           -> {atom(), addr(), [policy()]}.
+           -> {atom(), address(), [policy()]}.
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    {Addr, Policies} = totochtin_balancer:next(Balancer),
-    {Balancer, Addr, Policies}.
+    case totochtin_balancer:next(Balancer) of
+        {Addr, Policies} -> {Balancer, Addr, Policies};
+        down             -> down
+    end.

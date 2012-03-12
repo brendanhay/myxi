@@ -94,17 +94,11 @@ handshaking({reply, Channel, Method, Protocol}, State = #s{client = Client}) ->
     ok = send(Client, Channel, Method, Protocol),
     {next_state, handshaking, State}.
 
-handshaking({replay, StartOk, Replay, Protocol}, _From,
-          State = #s{router = Router, topology = Topology}) ->
-    %% Get a server address according to the routing and relevant balancer
-    {Name, Addr, Policies} = totochtin_router:route(Router, StartOk, Protocol),
-    %% Start a backend, replaying the previous client data to the server
-    {ok, Pid, Sock} = totochtin_backend:start_link(self(), Addr, Replay),
-    %% Create a fun composed of all available policies
-    Handler = totochtin_policy:handler(Name, Topology, Protocol, Policies),
-    {reply, ok, proxying, State#s{backend = Pid,
-                                  server  = Sock,
-                                  policy  = Handler}}.
+handshaking({replay, StartOk, Replay, Protocol}, _From, State) ->
+    case connect_peers(StartOk, Replay, Protocol, State) of
+        NewState = #s{} -> {reply, ok, proxying, NewState};
+        down            -> {stop, normal, State}
+    end.
 
 proxying({reply, Raw}, State = #s{client = Client}) ->
     ok = send(Client, Raw),
@@ -147,16 +141,18 @@ handle_info({'EXIT', Pid, _Msg}, _Any, State = #s{backend = Pid}) ->
 %% Cowboy acknowledgement
 handle_info({shoot, Listener}, accepting,
             State = #s{listener = Listener, client = Client}) ->
-    %% Cowboy acknowledgement
-    lager:info("FSM-ACCEPT"),
     {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
     {next_state, handshaking, State#s{frontend = Frontend}}.
 
 %% @hidden
-terminate(Reason, _StateName, State = #s{server   = Server,
-                                         backend  = Backend,
-                                         client   = Client,
-                                         frontend = Frontend}) ->
+terminate(Reason, StateName, #s{server   = Server,
+                                backend  = Backend,
+                                client   = Client,
+                                frontend = Frontend}) ->
+    case StateName of
+        handshaking -> catch gen_tcp:send(Client, <<"AMQP", 0, 0, 9, 1>>);
+        _Other      -> ok
+    end,
     lager:error("FSM-EXIT ~p", [Reason]),
     %% Investigate sockets release before send/2 messages are flushed
     catch gen_tcp:close(Server),
@@ -171,6 +167,25 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%
 %% Private
 %%
+
+%-spec forward_handshake(#s{}) -> #s{} | down.
+connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
+    %% Get a server address according to the routing and relevant balancer
+    case totochtin_router:route(Router, StartOk, Protocol) of
+        {Name, Addr, Policies} ->
+            %% Start a backend, replaying the previous client data to the server
+            case totochtin_backend:start_link(self(), Addr, Replay) of
+                {ok, Pid, Sock} ->
+                    %% Create a fun composed of all available policies
+                    Handler =
+                        totochtin_policy:handler(Name, Addr, Protocol, Policies),
+                    State#s{backend = Pid, server = Sock, policy = Handler};
+                _Error ->
+                    down
+            end;
+        down ->
+            down
+    end.
 
 -spec send(inet:socket(), binary()) -> ok | {error, _}.
 %% @private
@@ -205,17 +220,14 @@ intercept(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy})
 
 -spec close_client(#s{}) -> ok.
 %% @private
-close_client(#s{frontend = Frontend, client = Client}) ->
+close_client(#s{client = Client}) ->
     close(Client).
 
 -spec close_server(#s{}) -> ok.
 %% @private
-close_server(#s{backend = undefined}) ->
+close_server(#s{server = undefined}) ->
     ok;
-close_server(#s{backend = Backend, server = undefined}) ->
-    exit(Backend, kill),
-    ok;
-close_server(#s{backend = Backend, server = Server}) ->
+close_server(#s{server = Server}) ->
     close(Server).
 
 close(Sock) ->

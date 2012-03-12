@@ -21,6 +21,7 @@
 %% Callbacks
 %%
 
--spec next([addr()]) -> {addr(), [addr()]}.
+-spec next([endpoint()]) -> {endpoint() | none, [endpoint()]}.
 %% @doc
+next([])    -> {down, []};
 next([H|T]) -> {H, T ++ [H]}.

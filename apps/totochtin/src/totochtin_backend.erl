@@ -25,7 +25,7 @@
 %% API
 %%
 
--spec start_link(pid(), addr(), iolist()) -> {ok, pid()}.
+-spec start_link(pid(), address(), iolist()) -> {ok, pid()}.
 %% @doc
 start_link(Conn, Addr, Replay) ->
     proc_lib:start_link(?MODULE, init, [self(), Conn, Addr, Replay]).
@@ -74,7 +74,7 @@ replay(Server, [Payload, Header, Handshake]) ->
          end,
     gen_tcp:send(Server, [Header, Payload]).
 
--spec connect(addr(), non_neg_integer()) -> inet:socket().
+-spec connect(address(), non_neg_integer()) -> inet:socket().
 %% @private
 connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});

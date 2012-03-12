@@ -46,7 +46,6 @@ handle(Backend, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
             false
     end;
 
-    %% If not the current one, federate
 handle(Backend, #'exchange.declare'{exchange = Exchange}) ->
     %% Store the exchange in the topology map
     totochtin_topology:add_exchange(Exchange, Backend),
