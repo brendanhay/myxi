@@ -168,22 +168,29 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %% Private
 %%
 
-%-spec forward_handshake(#s{}) -> #s{} | down.
+-spec connect_peers(#'connection.start_ok'{}, iolist(), protocol(), #s{})
+                   -> #s{} | down.
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
     case totochtin_router:route(Router, StartOk, Protocol) of
-        {Name, Addr, Policies} ->
-            %% Start a backend, replaying the previous client data to the server
-            case totochtin_backend:start_link(self(), Addr, Replay) of
-                {ok, Pid, Sock} ->
-                    %% Create a fun composed of all available policies
-                    Handler =
-                        totochtin_policy:handler(Name, Addr, Protocol, Policies),
-                    State#s{backend = Pid, server = Sock, policy = Handler};
-                _Error ->
-                    down
-            end;
+        {Name, Address, Policies} ->
+            start_backend(Name, Address, Policies, Replay, Protocol, State);
         down ->
+            down
+    end.
+
+-spec start_backend(atom(), address(), [policy()], iolist(), protocol(), #s{})
+                   -> #s{} | down.
+%% @private
+start_backend(Name, Address, Policies, Replay, Protocol, State) ->
+    %% Start a backend, replaying the previous client data to the server
+    case totochtin_backend:start_link(self(), Address, Replay) of
+        {ok, Pid, Sock} ->
+            %% Create a fun composed of all available policies
+            Handler =
+                totochtin_policy:handler(Name, Address, Protocol, Policies),
+            State#s{backend = Pid, server = Sock, policy = Handler};
+        _Error ->
             down
     end.
 
