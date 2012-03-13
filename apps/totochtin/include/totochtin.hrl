@@ -20,7 +20,6 @@
 -type options()  :: [proplists:property()].
 
 -type address()  :: {inet:ip_address(), inet:port_number()}.
--type endpoint() :: {node(), inet:hostname(), inet:port_number()}.
 
 -type policy()   :: totochtin_ha_policy.
 
@@ -36,7 +35,7 @@
 
 -type backend()  :: [{atom(),
                       {balance, balancer()} |
-                      {nodes, [endpoint()]}}].
+                      {nodes, [{node(), inet:hostname(), inet:port_number()}]}}].
 
 -type client()   :: inet:socket().
 -type server()   :: inet:socket().
@@ -50,10 +49,16 @@
 %% Records
 %%
 
--record(policy, {method   :: method | undefined,
-                 backend  :: atom(),
-                 address  :: address(),
-                 protocol :: protocol()}).
+-record(endpoint, {node           :: node(),
+                   backend        :: atom(),
+                   host           :: inet:hostname(),
+                   port           :: inet:port_number()}).
+
+-record(policy,   {method         :: method | undefined,
+                   backend        :: atom(),
+                   address        :: address(),
+                   protocol       :: protocol(),
+                   callbacks = [] :: [fun(() -> ok)]}).
 
 %%
 %% GProc

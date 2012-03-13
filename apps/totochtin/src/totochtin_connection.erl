@@ -104,7 +104,7 @@ proxying({reply, Raw}, State = #s{client = Client}) ->
     ok = send(Client, Raw),
     {next_state, proxying, State};
 proxying({forward, Raw, Channel, Method, Protocol}, State) ->
-    ok = intercept(Raw, Channel, Method, Protocol, State),
+    ok = inject(Raw, Channel, Method, Protocol, State),
     {next_state, proxying, State}.
 
 closing(timeout, State) ->
@@ -212,18 +212,21 @@ send(Sock, Channel, Method, Protocol) ->
         rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
     send(Sock, Frame).
 
--spec intercept(iolist(), non_neg_integer(), ignore | passthrough | method(),
+-spec inject(iolist(), non_neg_integer(), ignore | passthrough | method(),
                 protocol(), #s{}) -> ok.
 %% @private
-intercept(_Data, _Channel, ignore, _Protocol, _State) ->
+inject(_Data, _Channel, ignore, _Protocol, _State) ->
     ok;
-intercept(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
+inject(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
-intercept(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
-    case Policy(Method) of
+inject(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
+    {Res, Callbacks} = Policy(Method),
+    case Res of
         false     -> send(Server, Data);
         NewMethod -> send(Server, Channel, NewMethod, Protocol)
-    end.
+    end,
+    [F() || F <- Callbacks],
+    ok.
 
 -spec close_client(#s{}) -> ok.
 %% @private

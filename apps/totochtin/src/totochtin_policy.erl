@@ -55,9 +55,9 @@ compose(F, G) -> fun(X) -> F(G(X)) end.
 
 -spec compare(method(), #policy{}) -> method() | false.
 %% @private
-compare(Original, #policy{method = New}) ->
+compare(Original, #policy{method = New, callbacks = Callbacks}) ->
     case New =/= Original of
-        true  -> New;
-        false -> false
+        true  -> {New, Callbacks};
+        false -> {false, Callbacks}
     end.
 

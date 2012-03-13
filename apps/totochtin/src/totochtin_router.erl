@@ -44,6 +44,8 @@ new(Frontend) ->
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
     case totochtin_balancer:next(Balancer) of
-        {Addr, Policies} -> {Balancer, Addr, Policies};
-        down             -> down
+        {#endpoint{host = Host, port = Port}, Policies} ->
+            {Balancer, {Host, Port}, Policies};
+        down ->
+            down
     end.

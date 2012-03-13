@@ -17,23 +17,31 @@
 %% Callbacks
 -export([intercept/1]).
 
+-define(VERIFY_DELAY, 500).
+
 %%
 %% Callbacks
 %%
 
 -spec intercept(#policy{}) -> method().
 %% @doc
-intercept(Policy = #policy{backend = Backend, method = Method}) ->
-    case handle(Backend, Method) of
+intercept(Policy = #policy{backend = Backend, method = Method, callbacks = Callbacks}) ->
+    case handle(Method, Backend) of
+        {false, AddCallbacks} ->
+            Policy#policy{callbacks = Callbacks ++ AddCallbacks};
         false ->
             Policy
     end.
 
-handle(Backend, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
+%%
+%% Private
+%%
+
+handle(#'queue.bind'{queue = Queue, exchange = Exchange}, Backend) ->
     %% Find which Backend, Exchange lives on
     case totochtin_topology:find_exchange(Exchange) of
         false ->
-            lager:error("QUEUE-EX-BIND ~s not found", [Queue, Exchange]),
+            lager:error("QUEUE-EX-BIND ~s not found", [Exchange]),
             false;
         Backend ->
             %% Same, alles ok
@@ -46,10 +54,8 @@ handle(Backend, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
             false
     end;
 
-handle(Backend, #'exchange.declare'{exchange = Exchange}) ->
-    %% Store the exchange in the topology map
-    totochtin_topology:add_exchange(Exchange, Backend),
-    false;
+handle(#'exchange.declare'{exchange = Name}, Backend) ->
+    {false, [fun() -> totochtin_topology:verify_exchange(Name, Backend) end]};
 
-handle(_Backend, _Policy) ->
+handle(_NoMatch, _Backend) ->
     false.

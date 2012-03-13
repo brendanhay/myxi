@@ -21,7 +21,7 @@
 %% Callbacks
 %%
 
--spec next([endpoint()]) -> {endpoint() | none, [endpoint()]}.
+-spec next([#endpoint{}]) -> {#endpoint{} | down, [#endpoint{}]}.
 %% @doc
 next([])    -> {down, []};
 next([H|T]) -> {H, T ++ [H]}.

@@ -20,6 +20,8 @@
 %% Callbacks
 -export([init/1]).
 
+-define(BALANCER_DELAY, 8000).
+
 %%
 %% API
 %%
@@ -69,14 +71,18 @@ balancer_spec({Name, Config}) ->
     Mod = totochtin:option(balancer, Config),
     Args = [Name,
             Mod,
-            node_addresses(Config),
+            endpoints(Name, Config),
             totochtin:option(policies, Config),
-            random:uniform(8000)],
+            random:uniform(?BALANCER_DELAY)],
     {Name, {totochtin_balancer, start_link, Args},
      permanent, 2000, worker, [totochtin_balancer]}.
 
-node_addresses(Config) -> [address(Node) || Node <- totochtin:option(nodes, Config)].
+endpoints(Name, Config) ->
+    [endpoint(Name, N) || N <- totochtin:option(nodes, Config)].
 
-address(Node) ->
-    Host = totochtin:option(node, Node),
-    {Host, totochtin:hostname(Host), totochtin:option(port, Node)}.
+endpoint(Name, Options) ->
+    Node = totochtin:option(node, Options),
+    #endpoint{node   = Node,
+             backend = Name,
+             host    = totochtin:hostname(Node),
+             port    = totochtin:option(port, Options)}.

@@ -32,8 +32,9 @@
 -type check() :: check_up | check_down.
 
 -record(s, {mod       :: module(),
-            up        :: [endpoint()],
-            down = [] :: [endpoint()],
+            name      :: atom(),
+            up        :: [#endpoint{}],
+            down = [] :: [#endpoint{}],
             policies  :: [policy()]}).
 
 -define(UP,         check_up).
@@ -55,15 +56,15 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec start_link(pid(), module(), [endpoint()], [policy()], pos_integer())
+-spec start_link(pid(), module(), [#endpoint{}], [policy()], pos_integer())
                 -> {ok, pid()} | {error, _} | ignore.
 %% @doc
-start_link(Name, Mod, Nodes, Policies, Delay) ->
-    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Nodes]),
-    State = #s{mod = Mod, up = Nodes, policies = Policies},
+start_link(Name, Mod, Endpoints, Policies, Delay) ->
+    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Endpoints]),
+    State = #s{name = Name, mod = Mod, up = Endpoints, policies = Policies},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
--spec next(pid()) -> {address(), [policy()]} | down.
+-spec next(pid()) -> {#endpoint{}, [policy()]} | down.
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 
@@ -75,20 +76,23 @@ next(Pid) -> gen_server:call(Pid, next).
 %% @hidden
 init({State, Delay}) ->
     process_flag(trap_exit, true),
+    %% Notify topology of new endpoints
+    totochtin_topology:add_endpoints(State#s.up),
     init_timers(Delay),
     {ok, State}.
 
 -spec handle_call(next, reference(), #s{})
-                 -> {reply, {address(), [policy()]} | down, #s{}}.
+                 -> {reply, {#endpoint{}, [policy()]} | down, #s{}}.
 %% @hidden
 handle_call(next, _From, State = #s{mod = Mod, up = Up, policies = Policies}) ->
     {Next, Shuffled} = Mod:next(Up),
     Selected =
         case Next of
-            {_Node, Host, Port} -> {{Host, Port}, Policies};
-            down                -> down
+            Endpoint = #endpoint{} -> {Endpoint, Policies};
+            down                   -> down
         end,
     {reply, Selected, State#s{up = Shuffled}}.
+
 
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden
@@ -143,16 +147,17 @@ health_check(?DOWN, State = #s{up = Up, down = Down}) ->
     lager:info("BALANCE-DOWN ~p ~p", [self(), NewDown]),
     State#s{up = Up ++ AddUp, down = NewDown}.
 
--spec check([node()]) -> {[node()], [node()]}.
+-spec check([#exchange{}]) -> {[#exchange{}], [#exchange{}]}.
 %% @private
-check(Nodes) -> check(Nodes, [], []).
+check(Endpoints) -> check(Endpoints, [], []).
 
--spec check([node()], [node()], [node()]) -> {[node()], [node()]}.
+-spec check([#exchange{}], [#exchange{}], [#exchange{}])
+           -> {[#exchange{}], [#exchange{}]}.
 %% @private
 check([], Up, Down) ->
     {lists:reverse(Up), lists:reverse(Down)};
-check([N = {Node, _Host, _Port}|T], Up, Down) ->
-    case net_adm:ping(Node) of
-        pong -> check(T, [N|Up], Down);
-        pang -> check(T, Up, [N|Down])
+check([H|T], Up, Down) ->
+    case net_adm:ping(H#endpoint.node) of
+        pong -> check(T, [H|Up], Down);
+        pang -> check(T, Up, [H|Down])
     end.

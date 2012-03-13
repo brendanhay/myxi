@@ -38,9 +38,8 @@ start_link(Conn, Addr, Replay) ->
 %% @hidden
 init(Parent, Conn, Addr, Replay) ->
     Server = connect(Addr, 3),
-    gen_tcp:controlling_process(Server, Conn),
-    lager:info("BACKEND-INIT ~p", [Server]),
-    proc_lib:init_ack(Parent, {ok, self(), Server}),
+    ok = gen_tcp:controlling_process(Server, Conn),
+    ok = proc_lib:init_ack(Parent, {ok, self(), Server}),
     ok = replay(Server, Replay),
     read(#s{connection = Conn, server = Server}).
 
