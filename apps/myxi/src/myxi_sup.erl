@@ -59,7 +59,7 @@ topology_spec() ->
 
 stats_spec(Config) ->
     Ns = myxi:option(namespace, Config),
-    Url = myxi:os_env(totochtin:option(url, Config), "localhost:8126"),
+    Url = myxi:os_env(myxi:option(url, Config), "localhost:8126"),
     {stats, {myxi_stats, start_link, [Ns, Url]},
      permanent, 2000, worker, [myxi_stats]}.
 
