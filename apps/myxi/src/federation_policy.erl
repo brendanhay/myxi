@@ -10,9 +10,9 @@
 
 -module(federation_policy).
 
-%% -behaviour(totochtin_policy).
+%% -behaviour(myxi_policy).
 
-%% -include("include/totochtin.hrl").
+%% -include("include/myxi.hrl").
 
 %% %% Callbacks
 %% -export([intercept/1]).
@@ -31,7 +31,7 @@
 
 %% handle({Backend, Addr}, #'queue.bind'{queue = Queue, exchange = Exchange}) ->
 %%     %% Find which Backend, Exchange lives on
-%%     case totochtin_topology:find_exchange(Exchange) of
+%%     case myxi_topology:find_exchange(Exchange) of
 %%         false ->
 %%             lager:error("FED-EX-BIND ~s not found", [Queue, Exchange]);
 %%         Backend ->
@@ -55,7 +55,7 @@
 
 %% handle({Backend, _Addr}, #'exchange.declare'{exchange = Exchange}) ->
 %%     %% Store the exchange declaration in the topology map
-%%     totochtin_topology:add_exchange(Exchange, Backend),
+%%     myxi_topology:add_exchange(Exchange, Backend),
 %%     false;
 
 %% handle(_Backend, _Policy) ->

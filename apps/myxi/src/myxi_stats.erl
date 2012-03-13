@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_stats).
+-module(myxi_stats).
 
 -behaviour(gen_server).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/2,
@@ -65,7 +65,7 @@ counter(Stat, Step) -> cast({counter, Stat, Step}).
 init({Ns, Url}) ->
     lager:info("STATS-INIT"),
     process_flag(trap_exit, true),
-    {Host, Port} = totochtin:split_host(Url, 8125),
+    {Host, Port} = myxi:split_host(Url, 8125),
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 
@@ -74,7 +74,7 @@ init({Ns, Url}) ->
 handle_call(_Msg, _From, State) -> {reply, ok, State}.
 
 -spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
-%% listener creates a totochtin_connection
+%% listener creates a myxi_connection
 handle_cast({connect, Conn, Started}, State) ->
     gproc:reg(?PROP(Conn), Started),
     monitor(process, Conn),
@@ -86,7 +86,7 @@ handle_cast({counter, Stat, Step}, State) ->
     {noreply, State}.
 
 -spec handle_info(_, #s{}) -> {noreply, #s{}}.
-%% @hidden totochtin_connection terminates
+%% @hidden myxi_connection terminates
 handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
     Started = gproc:get_value(?PROP(Conn)),
     gproc:unreg(?PROP(Conn)),

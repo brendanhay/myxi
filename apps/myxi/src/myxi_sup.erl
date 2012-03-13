@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_sup).
+-module(myxi_sup).
 
 -behaviour(supervisor).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/0]).
@@ -41,8 +41,8 @@ init([]) ->
     %% Used to ensure balancer check starts are delayed
     random:seed(erlang:now()),
     Topology = topology_spec(),
-    Stats = stats_spec(totochtin:config(statsd)),
-    Balancers = [balancer_spec(B) || B <- totochtin:config(backends)],
+    Stats = stats_spec(myxi:config(statsd)),
+    Balancers = [balancer_spec(B) || B <- myxi:config(backends)],
     {ok, {{one_for_one, 3, 20}, [Topology, Stats|Balancers]}}.
 
 %%
@@ -50,39 +50,39 @@ init([]) ->
 %%
 
 topology_spec() ->
-    {topology, {totochtin_topology, start_link, []},
-     permanent, 2000, worker, [totochtin_topology]}.
+    {topology, {myxi_topology, start_link, []},
+     permanent, 2000, worker, [myxi_topology]}.
 
 %%
 %% Grpoc, Graphite
 %%
 
 stats_spec(Config) ->
-    Ns = totochtin:option(namespace, Config),
-    Url = totochtin:os_env(totochtin:option(url, Config), "localhost:8126"),
-    {stats, {totochtin_stats, start_link, [Ns, Url]},
-     permanent, 2000, worker, [totochtin_stats]}.
+    Ns = myxi:option(namespace, Config),
+    Url = myxi:os_env(totochtin:option(url, Config), "localhost:8126"),
+    {stats, {myxi_stats, start_link, [Ns, Url]},
+     permanent, 2000, worker, [myxi_stats]}.
 
 %%
 %% Balancers
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = totochtin:option(balancer, Config),
+    Mod = myxi:option(balancer, Config),
     Args = [Name,
             Mod,
             endpoints(Name, Config),
-            totochtin:option(policies, Config),
+            myxi:option(policies, Config),
             random:uniform(?BALANCER_DELAY)],
-    {Name, {totochtin_balancer, start_link, Args},
-     permanent, 2000, worker, [totochtin_balancer]}.
+    {Name, {myxi_balancer, start_link, Args},
+     permanent, 2000, worker, [myxi_balancer]}.
 
 endpoints(Name, Config) ->
-    [endpoint(Name, N) || N <- totochtin:option(nodes, Config)].
+    [endpoint(Name, N) || N <- myxi:option(nodes, Config)].
 
 endpoint(Name, Options) ->
-    Node = totochtin:option(node, Options),
+    Node = myxi:option(node, Options),
     #endpoint{node   = Node,
              backend = Name,
-             host    = totochtin:hostname(Node),
-             port    = totochtin:option(port, Options)}.
+             host    = myxi:hostname(Node),
+             port    = myxi:option(port, Options)}.

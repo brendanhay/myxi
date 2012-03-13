@@ -1,4 +1,4 @@
-{application, totochtin, [
+{application, myxi, [
     {description, "Centzon Totochtin"},
     {vsn, "0.1.0"},
     {registered, []},
@@ -9,7 +9,7 @@
         cowboy,
         gproc
     ]},
-    {mod, {totochtin, []}},
+    {mod, {myxi, []}},
     {env, [
 
         %% tcp
@@ -31,7 +31,7 @@
             [{ip, "0.0.0.0"},
              {port, 5673},
              {max, 10},
-             {router, totochtin_user_router, [
+             {router, myxi_user_router, [
                  [{user, <<"guest">>}, {backend, activities}],
                  [{user, <<"activities">>}, {backend, soundcloud}]
              ]}]
@@ -40,9 +40,9 @@
         %% backends
         {backends, [
             {soundcloud, [
-                {balancer, totochtin_roundrobin_balancer},
+                {balancer, myxi_roundrobin_balancer},
                 {policies, [
-                    totochtin_federation_policy
+                    myxi_federation_policy
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},
@@ -51,9 +51,9 @@
             ]},
 
             {activities, [
-                {balancer, totochtin_roundrobin_balancer},
+                {balancer, myxi_roundrobin_balancer},
                 {policies, [
-                    totochtin_federation_policy
+                    myxi_federation_policy
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},

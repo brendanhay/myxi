@@ -1,6 +1,6 @@
--module(totochtin_SUITE).
+-module(myxi_SUITE).
 
--include("totochtin_common_test.hrl").
+-include("myxi_common_test.hrl").
 
 -define(PORT, 5672).
 

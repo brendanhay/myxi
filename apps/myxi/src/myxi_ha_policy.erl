@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_ha_policy).
+-module(myxi_ha_policy).
 
--behaviour(totochtin_policy).
+-behaviour(myxi_policy).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([intercept/1]).

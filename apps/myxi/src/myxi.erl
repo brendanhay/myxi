@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin).
+-module(myxi).
 
 -behaviour(application).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start/0,
@@ -84,7 +84,7 @@ format_ip(Host, Port) ->
 %% @doc
 peername(Sock) ->
     case inet:peername(Sock) of
-        {ok, {Ip, Port}} -> totochtin:format_ip(Ip, Port);
+        {ok, {Ip, Port}} -> myxi:format_ip(Ip, Port);
         _Error           -> "DISCONN"
     end.
 
@@ -130,7 +130,7 @@ os_env(Value, Default) ->
 %% @hidden
 start(normal, _Args) ->
     start_listeners(),
-    totochtin_sup:start_link().
+    myxi_sup:start_link().
 
 -spec stop(_) -> ok.
 %% @hidden
@@ -170,7 +170,7 @@ listener(Config) ->
     lager:info("LISTEN ~s", [format_ip(Tcp)]),
     cowboy:start_listener(amqp_listener, option(max, Config),
                           cowboy_tcp_transport, Tcp,
-                          totochtin_connection, Config).
+                          myxi_connection, Config).
 
 %%
 %% Config

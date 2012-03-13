@@ -8,9 +8,9 @@
 %% @doc
 %%
 
--module(totochtin_policy).
+-module(myxi_policy).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).

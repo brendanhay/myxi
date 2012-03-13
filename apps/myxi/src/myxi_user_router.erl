@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_user_router, [Routes]).
+-module(myxi_user_router, [Routes]).
 
--behaviour(totochtin_router).
+-behaviour(myxi_router).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([select_balancer/2]).

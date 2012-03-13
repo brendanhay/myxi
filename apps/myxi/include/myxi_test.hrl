@@ -11,7 +11,7 @@
 
 -compile(export_all).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").

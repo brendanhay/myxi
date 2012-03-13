@@ -8,12 +8,12 @@
 %% @doc
 %%
 
--module(totochtin_topology).
+-module(myxi_topology).
 
 -behaviour(gen_server).
 
 -include_lib("stdlib/include/ms_transform.hrl").
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/0,
@@ -63,7 +63,7 @@ find_exchange(Name) ->
 %% loading it into ets if succcessful
 verify_exchange(Name, Backend) ->
     lager:info("VERIFY-EXCHANGE ~s -> ~s", [Name, Backend]),
-    {#endpoint{node = Node}, _Policies} = totochtin_balancer:next(Backend),
+    {#endpoint{node = Node}, _Policies} = myxi_balancer:next(Backend),
     Resource = rabbit_misc:r(<<"/">>, exchange, Name),
     case rpc:call(Node, rabbit_misc, dirty_read, [{rabbit_exchange, Resource}]) of
         {ok, Exchange} ->

@@ -21,11 +21,11 @@
 
 -type address()  :: {inet:ip_address(), inet:port_number()}.
 
--type policy()   :: totochtin_ha_policy.
+-type policy()   :: myxi_ha_policy.
 
--type router()   :: totochtin_user_router.
+-type router()   :: myxi_user_router.
 
--type balancer() :: totochtin_round_robin.
+-type balancer() :: myxi_round_robin.
 
 -type frontend() :: [{ip, string()} |
                      {port, pos_integer()} |

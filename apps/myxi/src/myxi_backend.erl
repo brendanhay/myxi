@@ -8,9 +8,9 @@
 %% @doc
 %%
 
--module(totochtin_backend).
+-module(myxi_backend).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/3]).
@@ -52,7 +52,7 @@ init(Parent, Conn, Addr, Replay) ->
 read(State = #s{connection = Conn, server = Server}) ->
     case gen_tcp:recv(Server, 0) of
         {ok, Data} ->
-            totochtin_connection:reply(Conn, Data),
+            myxi_connection:reply(Conn, Data),
             read(State);
         {error, closed} ->
             exit(normal);
@@ -79,7 +79,7 @@ connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
 connect({Ip, Port}, Retries) ->
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
-        ++ totochtin:config(tcp),
+        ++ myxi:config(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

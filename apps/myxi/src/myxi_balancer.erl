@@ -8,9 +8,9 @@
 %% @doc
 %%
 
--module(totochtin_balancer).
+-module(myxi_balancer).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 -behaviour(gen_server).
 
@@ -77,7 +77,7 @@ next(Pid) -> gen_server:call(Pid, next).
 init({State, Delay}) ->
     process_flag(trap_exit, true),
     %% Notify topology of new endpoints
-    totochtin_topology:add_endpoints(State#s.up),
+    myxi_topology:add_endpoints(State#s.up),
     init_timers(Delay),
     {ok, State}.
 

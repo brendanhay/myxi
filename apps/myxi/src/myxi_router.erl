@@ -8,9 +8,9 @@
 %% @doc
 %%
 
--module(totochtin_router).
+-module(myxi_router).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Behaviour
 -export([behaviour_info/1]).
@@ -43,7 +43,7 @@ new(Frontend) ->
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    case totochtin_balancer:next(Balancer) of
+    case myxi_balancer:next(Balancer) of
         {#endpoint{host = Host, port = Port}, Policies} ->
             {Balancer, {Host, Port}, Policies};
         down ->

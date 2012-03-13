@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_federation_policy).
+-module(myxi_federation_policy).
 
--behaviour(totochtin_policy).
+-behaviour(myxi_policy).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([intercept/1]).
@@ -39,7 +39,7 @@ intercept(Policy = #policy{backend = Backend, method = Method, callbacks = Callb
 
 handle(#'queue.bind'{queue = Queue, exchange = Exchange}, Backend) ->
     %% Find which Backend, Exchange lives on
-    case totochtin_topology:find_exchange(Exchange) of
+    case myxi_topology:find_exchange(Exchange) of
         false ->
             lager:error("QUEUE-EX-BIND ~s not found", [Exchange]),
             false;
@@ -55,7 +55,7 @@ handle(#'queue.bind'{queue = Queue, exchange = Exchange}, Backend) ->
     end;
 
 handle(#'exchange.declare'{exchange = Name}, Backend) ->
-    {false, [fun() -> totochtin_topology:verify_exchange(Name, Backend) end]};
+    {false, [fun() -> myxi_topology:verify_exchange(Name, Backend) end]};
 
 handle(_NoMatch, _Backend) ->
     false.

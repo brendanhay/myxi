@@ -8,11 +8,11 @@
 %% @doc
 %%
 
--module(totochtin_roundrobin_balancer).
+-module(myxi_roundrobin_balancer).
 
--behaviour(totochtin_balancer).
+-behaviour(myxi_balancer).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([next/1]).

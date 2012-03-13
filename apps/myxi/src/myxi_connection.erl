@@ -8,12 +8,12 @@
 %% @doc
 %%
 
--module(totochtin_connection).
+-module(myxi_connection).
 
 -behaviour(gen_fsm).
 -behaviour(cowboy_protocol).
 
--include("include/totochtin.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/4,
@@ -85,8 +85,8 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
-    totochtin_stats:connect(self()),
-    {ok, accepting, #s{router   = totochtin_router:new(Config),
+    myxi_stats:connect(self()),
+    {ok, accepting, #s{router   = myxi_router:new(Config),
                        listener = Listener,
                        client   = Client}}.
 
@@ -141,7 +141,7 @@ handle_info({'EXIT', Pid, _Msg}, _Any, State = #s{backend = Pid}) ->
 %% Cowboy acknowledgement
 handle_info({shoot, Listener}, accepting,
             State = #s{listener = Listener, client = Client}) ->
-    {ok, Frontend} = totochtin_frontend:start_link(self(), Client),
+    {ok, Frontend} = myxi_frontend:start_link(self(), Client),
     {next_state, handshaking, State#s{frontend = Frontend}}.
 
 %% @hidden
@@ -172,7 +172,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
                    -> #s{} | down.
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
-    case totochtin_router:route(Router, StartOk, Protocol) of
+    case myxi_router:route(Router, StartOk, Protocol) of
         {Name, Address, Policies} ->
             start_backend(Name, Address, Policies, Replay, Protocol, State);
         down ->
@@ -184,11 +184,11 @@ connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
 %% @private
 start_backend(Name, Address, Policies, Replay, Protocol, State) ->
     %% Start a backend, replaying the previous client data to the server
-    case totochtin_backend:start_link(self(), Address, Replay) of
+    case myxi_backend:start_link(self(), Address, Replay) of
         {ok, Pid, Sock} ->
             %% Create a fun composed of all available policies
             Handler =
-                totochtin_policy:handler(Name, Address, Protocol, Policies),
+                myxi_policy:handler(Name, Address, Protocol, Policies),
             State#s{backend = Pid, server = Sock, policy = Handler};
         _Error ->
             down
