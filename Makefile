@@ -46,15 +46,15 @@ test: unit integration
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/totochtin/ebin $(DEPS) -sname totochtin
+ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname totochtin
 
 .PHONY: boot noboot
 
 console: package
-	rel/package/bin/totochtin console
+	rel/package/bin/myxi console
 
 boot: build
-	$(ERL) -s totochtin
+	$(ERL) -s myxi
 
 noboot: build
 	$(ERL)
@@ -87,4 +87,4 @@ xref:
 	$(REBAR) skip_deps=true xref
 
 typer: build
-	typer --annotate --plt $(PLT) -I deps/ -I apps/totochtin/ -r apps/
+	typer --annotate --plt $(PLT) -I deps/ -I apps/myxi/ -r apps/
