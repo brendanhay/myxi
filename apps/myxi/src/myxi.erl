@@ -17,8 +17,10 @@
 %% API
 -export([start/0,
          stop/0,
+         bin/1,
          config/1,
          option/2,
+         merge_keylist/2,
          format_ip/1,
          format_ip/2,
          peername/1,
@@ -45,6 +47,12 @@ stop() ->
     ok = application:stop(?MODULE),
     init:stop().
 
+-spec bin(atom() | list() | binary()) -> binary().
+%% @doc
+bin(Atom) when is_atom(Atom)  -> bin(atom_to_list(Atom));
+bin(List) when is_list(List)  -> list_to_binary(List);
+bin(Bin)  when is_binary(Bin) -> Bin.
+
 -spec config(atom()) -> any().
 %% @doc
 config(Key) ->
@@ -61,6 +69,13 @@ option(ip, Opts) ->
     Ip;
 option(Key, Opts) ->
     lookup_option(Key, Opts).
+
+-spec merge_keylist([proplists:property()], [proplists:property()])
+                   -> [proplists:property()].
+%% @doc
+merge_keylist(L1, L2) ->
+    Fold = fun(T, A) -> lists:keystore(element(1, T), 1, A, T) end,
+    lists:foldl(Fold, L1, L2).
 
 -spec format_ip([proplists:property()]) -> string().
 %% @doc
@@ -110,7 +125,7 @@ split_host(Host, Default) ->
     end.
 
 -spec os_env(atom() | string(), string()) -> string().
-%% @private
+%% @doc
 os_env(Value, Default) ->
     case Value of
         V when is_atom(V) ->

@@ -38,7 +38,7 @@ handler(Endpoint, Protocol, Policies) ->
     Fn = compose([fun(A) -> P:inject(A) end || P <- Policies]),
     Args = #policy{endpoint = Endpoint,
                    protocol = Protocol},
-    fun(M) -> compare(M, Fn(Args#policy{method = M})) end.
+    fun(M) -> return(M, Fn(Args#policy{method = M})) end.
 
 %%
 %% Private
@@ -52,11 +52,11 @@ compose(Fns) -> lists:foldl(fun compose/2, fun(X) -> X end, Fns).
 %% @private
 compose(F, G) -> fun(X) -> F(G(X)) end.
 
--spec compare(method(), #policy{}) -> method() | false.
+-spec return(method(), #policy{}) -> {method() | unmodified, [action()], [action()]}.
 %% @private
-compare(Original, #policy{method = New, callbacks = Callbacks}) ->
-    case New =/= Original of
-        true  -> {New, Callbacks};
-        false -> {false, Callbacks}
-    end.
-
+return(Original, #policy{method = New, pre = Pre, post = Post}) ->
+    Status = case New =/= Original of
+                 true  -> New;
+                 false -> unmodified
+             end,
+    {Status, Pre, Post}.

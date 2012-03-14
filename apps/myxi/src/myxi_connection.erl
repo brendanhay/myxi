@@ -220,13 +220,45 @@ inject(_Data, _Channel, ignore, _Protocol, _State) ->
 inject(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
 inject(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
-    {Res, Callbacks} = Policy(Method),
-    case Res of
-        false     -> send(Server, Data);
-        NewMethod -> send(Server, Channel, NewMethod, Protocol)
+    {Status, Pre, Post} = Policy(Method),
+    [action(A, Server, Channel, Protocol) || A <- Pre],
+    case Status of
+        unmodified -> send(Server, Data);
+        NewMethod  -> send(Server, Channel, NewMethod, Protocol)
     end,
-    [F() || F <- Callbacks],
+    [action(A, Server, Channel, Protocol) || A <- Post],
     ok.
+
+-spec action(action(), inet:socket(), non_neg_integer(), protocol()) -> ok.
+%% @private
+action({apply, M, F, A}, _Server, _Channel, _Protocol) ->
+    apply(M, F, A);
+action({send, Data}, Server, _Channel, _Protocol) when is_binary(Data) ->
+    send(Server, Data);
+action({send, Method}, Server, Channel, Protocol) ->
+    send(Server, Channel, Method, Protocol);
+action({recv, Data}, Server, Channel, Protocol) when is_binary(Data) ->
+    action({recv, size(Data)}, Server, Channel, Protocol);
+action({recv, Size}, Server, _Channel, _Protocol) when is_integer(Size) ->
+    gen_tcp:recv(Server, Size);
+action({recv, Method}, Server, Channel, Protocol) ->
+    Frame = rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
+    action({recv, frame_size(Frame)}, Server, Channel, Protocol).
+
+-spec frame_size(iolist()) -> non_neg_integer().
+%% @private
+frame_size(IoList) -> frame_size(IoList, 0).
+
+-spec frame_size(iolist(), non_neg_integer()) -> non_neg_integer().
+%% @private
+frame_size([], Acc) ->
+    Acc;
+frame_size([H|T], Acc) when is_list(H) ->
+    frame_size(T, Acc + frame_size(H));
+frame_size([H|T], Acc) when is_binary(H) ->
+    frame_size(T, Acc + size(H));
+frame_size([H|T], Acc) ->
+    frame_size(T, Acc + 1).
 
 -spec close_client(#s{}) -> ok.
 %% @private

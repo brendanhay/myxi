@@ -17,69 +17,64 @@
 %% Callbacks
 -export([inject/1]).
 
--define(CONN_PARAMS(Node), #amqp_params_direct{username = <<"guest">>,
-                                               node     = Node}).
-
 %%
 %% Callbacks
 %%
 
--spec inject(#policy{}) -> method().
+-spec inject(#policy{}) -> #policy{}.
 %% @doc
-inject(Policy = #policy{endpoint  = Endpoint,
-                        method    = Method,
-                        callbacks = Callbacks}) ->
-    case handle(Method, Endpoint) of
-        {false, AddCallbacks} ->
-            Policy#policy{callbacks = Callbacks ++ AddCallbacks};
-        false ->
-            Policy
-    end.
+inject(Policy = #policy{endpoint = Endpoint,
+                        method   = #'queue.bind'{exchange = Exchange},
+                        pre      =  Pre}) ->
+    Policy#policy{pre = [pre_commands(Node, Backend, Exchange)|Pre]};
+inject(Policy) ->
+    Policy.
 
 %%
 %% Private
 %%
 
-handle(#'queue.bind'{exchange = Name},
-       _Endpoint = #endpoint{node = Node, backend = Backend}) ->
-    %% Find which Backend, Name lives on
-    case myxi_topology:find_exchange(Name) of
+-spec pre_commands(#endpoint{}, binary()) -> [action()].
+%% @private
+pre_commands(#endpoint{node = Node, backend = Backend}, Exchange) ->
+    case myxi_topology:find_exchange(Exchange) of
         false ->
-            %% Temporarily asserting that the exchange must exist
-            error({federation_policy, bind_failed});
+            [];
         {Backend, _Declare} ->
-            false;
+            [];
         {Other, Declare} ->
-            declare(federated(Declare, Other), Node),
-            %% return false so the bind goes through
-            false
-    end;
+            case upstream_exists(Other) of
+                true  -> federate(Declare, Other);
+                false -> []
+            end
+    end.
 
-handle(#'exchange.declare'{exchange = Name}, #endpoint{backend = Backend}) ->
-    {false, [fun() -> myxi_topology:verify_exchange(Name, Backend) end]};
+-spec federate(#'exchange.declare'{}, atom()) -> [action()].
+%% @private
+federate(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstream) ->
+    Send = Declare#'exchange.declare'{
+             type      = <<"x-federation">>,
+             arguments = args(Args, Type, Upstream)
+            },
+    [{send, Send}, {recv, #'exchange.declare_ok'{}}].
 
-handle(_NoMatch, _Backend) ->
-    false.
+-spec args([tuple()], list() | binary(), atom()) -> [tuple()].
+%% @private
+args(Args, Type, Upstream) ->
+    Merge = [{<<"upstream_set">>, longstr, myxi:bin(Upstream)},
+             {<<"type">>, longstr, myxi:bin(Type)}],
+    myxi:merge_keylist(Args, Merge).
 
-federated(Declare = #'exchange.declare'{type = Type, arguments = Args}, Set) ->
-    NewArgs = merge_keylist(Args, [{type, Type}, {upstream_set, Set}]),
-    Declare#'exchange.declare'{type = <<"x-federation">>, arguments = NewArgs}.
-
-merge_keylist(L1, L2) ->
-    Fold = fun({K, V}, A) -> lists:keystore(K, 1, A, {K, V}) end,
-    lists:foldl(Fold, L1, L2).
-
-declare(Declare, Node) ->
-    lager:notice("FED-START ~p on ~p", [Declare, Node]),
-    {ok, Conn} = amqp_connection:start(?CONN_PARAMS(Node)),
-    {ok, Chan} = amqp_connection:open_channel(Conn),
-    try
-        #'exchange.declare_ok'{} = amqp_channel:call(Chan, Declare),
-        lager:notice("FED-SUCCESS ~s declared on ~p",
-                     [Declare#'exchange.declare'.exchange, Node]),
-        amqp_channel:close(Chan),
-        amqp_connection:close(Conn)
-    catch
-        exit:Reason ->
-            lager:error("FED-FAILURE ~p", [Reason])
+-spec upstream_exists(node(), binary(), atom()) -> true | false.
+%% @private
+upstream_exists(Node, Exchange, Upstream) ->
+    %% from_set only looks at #resrouce.name/.vhost
+    Name = #resource{name = Exchange, vhost = <<"/">>},
+    Set = list_to_binary(atom_to_list(Upstream)),
+    case rpc:call(Node, rabbit_federation_upstream, from_set, [Set, Name]) of
+        {error, Error} ->
+            lager:error("FED-ERROR upstream_set: ~p", [Error]),
+            false;
+        {ok, _Any} ->
+            true
     end.

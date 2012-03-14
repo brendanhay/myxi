@@ -1,3 +1,4 @@
+
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
 %% A copy of the MPL can be found in the LICENSE file or
@@ -8,7 +9,7 @@
 %% @doc
 %%
 
--module(myxi_ha_policy).
+-module(myxi_topology_policy).
 
 -behaviour(myxi_policy).
 
@@ -23,9 +24,11 @@
 
 -spec inject(#policy{}) -> #policy{}.
 %% @doc
-inject(Policy = #policy{method = Method = #'queue.declare'{arguments = Args}}) ->
-    NewArgs = myxi:merge_keylist(Args, [{<<"x-ha-policy">>, longstr, <<"all">>}]),
-    Policy#policy{method = Method#'queue.declare'{arguments = NewArgs}};
+inject(Policy = #policy{method   = #'exchange.declare'{exchange = Name},
+                        endpoint = #endpoint{backend = Backend},
+                        post     = Post}) ->
+    Callback = {apply, myxi_topology, verify_exchange, [Name, Backend]},
+    Policy#policy{post = [Callback|Post]};
 inject(Policy) ->
     Policy.
 
