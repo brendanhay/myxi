@@ -72,9 +72,9 @@ upstream_exists(Node, Exchange, Upstream) ->
     Name = #resource{name = Exchange, virtual_host = <<"/">>},
     Set = list_to_binary(atom_to_list(Upstream)),
     case rpc:call(Node, rabbit_federation_upstream, from_set, [Set, Name]) of
-        {error, Error} ->
-            lager:error("FED-FAILURE upstream_set: ~p", [Error]),
-            false;
         {ok, _Any} ->
-            true
+            true;
+        Error ->
+            lager:error("FED-FAILURE upstream_set: ~p", [Error]),
+            false
     end.
