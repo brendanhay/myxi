@@ -38,7 +38,7 @@
 
 -record(s, {router   :: router(),
             topology :: ets:tid(),
-            policy   :: fun((method()) -> method() | false),
+            mware    :: myxi_middleware:composed(),
             listener :: pid(),
             backend  :: pid(),
             frontend :: pid(),
@@ -104,7 +104,7 @@ proxying({reply, Raw}, State = #s{client = Client}) ->
     ok = send(Client, Raw),
     {next_state, proxying, State};
 proxying({forward, Raw, Channel, Method, Protocol}, State) ->
-    ok = inject(Raw, Channel, Method, Protocol, State),
+    ok = call_mw(Raw, Channel, Method, Protocol, State),
     {next_state, proxying, State}.
 
 closing(timeout, State) ->
@@ -173,23 +173,23 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
     case myxi_router:route(Router, StartOk, Protocol) of
-        {Endpoint, Policies} ->
-            start_backend(Endpoint, Policies, Replay, Protocol, State);
+        {Endpoint, MW} ->
+            start_backend(Endpoint, MW, Replay, Protocol, State);
         down ->
             down
     end.
 
--spec start_backend(#endpoint{}, [policy()], iolist(), protocol(), #s{})
+-spec start_backend(#endpoint{}, [mware()], iolist(), protocol(), #s{})
                    -> #s{} | down.
 %% @private
 start_backend(Endpoint = #endpoint{address = Addr},
-              Policies, Replay, Protocol, State) ->
+              MW, Replay, Protocol, State) ->
     %% Start a backend, replaying the previous client data to the server
     case myxi_backend:start_link(self(), Addr, Replay) of
         {ok, Pid, Sock} ->
-            %% Create a fun composed of all available policies
-            Handler = myxi_policy:handler(Endpoint, Protocol, Policies),
-            State#s{backend = Pid, server = Sock, policy = Handler};
+            %% Create a fun composed of all available middleware
+            Composed = myxi_middleware:wrap(Endpoint, Protocol, MW),
+            State#s{backend = Pid, server = Sock, mware = Composed};
         _Error ->
             down
     end.
@@ -212,15 +212,15 @@ send(Sock, Channel, Method, Protocol) ->
         rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
     send(Sock, Frame).
 
--spec inject(iolist(), non_neg_integer(), ignore | passthrough | method(),
-                protocol(), #s{}) -> ok.
+-spec call_mw(iolist(), non_neg_integer(), ignore | passthrough | method(),
+              protocol(), #s{}) -> ok.
 %% @private
-inject(_Data, _Channel, ignore, _Protocol, _State) ->
+call_mw(_Data, _Channel, ignore, _Protocol, _State) ->
     ok;
-inject(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
+call_mw(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
-inject(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
-    {Status, Pre, Post} = Policy(Method),
+call_mw(Data, Channel, Method, Protocol, #s{server = Server, mware = MW}) ->
+    {Status, Pre, Post} = MW(Method),
     [action(A, Server, Channel, Protocol) || A <- Pre],
     case Status of
         unmodified -> send(Server, Data);
@@ -257,7 +257,7 @@ frame_size([H|T], Acc) when is_list(H) ->
     frame_size(T, Acc + frame_size(H));
 frame_size([H|T], Acc) when is_binary(H) ->
     frame_size(T, Acc + size(H));
-frame_size([H|T], Acc) ->
+frame_size([_H|T], Acc) ->
     frame_size(T, Acc + 1).
 
 -spec close_client(#s{}) -> ok.

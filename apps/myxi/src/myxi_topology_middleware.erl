@@ -1,4 +1,3 @@
-
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
 %% A copy of the MPL can be found in the LICENSE file or
@@ -9,28 +8,28 @@
 %% @doc
 %%
 
--module(myxi_topology_policy).
+-module(myxi_topology_middleware).
 
--behaviour(myxi_policy).
+-behaviour(myxi_middleware).
 
 -include("include/myxi.hrl").
 
 %% Callbacks
--export([inject/1]).
+-export([call/1]).
 
 %%
 %% Callbacks
 %%
 
--spec inject(#policy{}) -> #policy{}.
+-spec call(#mware{}) -> #mware{}.
 %% @doc
-inject(Policy = #policy{method   = #'exchange.declare'{exchange = Name},
-                        endpoint = #endpoint{backend = Backend},
-                        post     = Post}) ->
+call(MW = #mware{method   = #'exchange.declare'{exchange = Name},
+                      endpoint = #endpoint{backend = Backend},
+                      post     = Post}) ->
     Callback = {apply, myxi_topology, verify_exchange, [Name, Backend]},
-    Policy#policy{post = [Callback|Post]};
-inject(Policy) ->
-    Policy.
+    MW#mware{post = [Callback|Post]};
+call(MW) ->
+    MW.
 
 
 

@@ -41,10 +41,10 @@
         {backends, [
             {soundcloud, [
                 {balancer, myxi_roundrobin_balancer},
-                {policies, [
-                    myxi_topology_policy,
-                    myxi_federation_policy,
-                    myxi_ha_policy
+                {middleware, [
+                    myxi_topology_middleware,
+                    myxi_federation_middleware,
+                    myxi_ha_middleware
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},
@@ -54,10 +54,10 @@
 
             {activities, [
                 {balancer, myxi_roundrobin_balancer},
-                {policies, [
-                    myxi_topology_policy,
-                    myxi_federation_policy,
-                    myxi_ha_policy
+                {middleware, [
+                    myxi_topology_middleware,
+                    myxi_federation_middleware,
+                    myxi_ha_middleware
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},

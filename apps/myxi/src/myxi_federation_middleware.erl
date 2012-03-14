@@ -8,27 +8,27 @@
 %% @doc
 %%
 
--module(myxi_federation_policy).
+-module(myxi_federation_middleware).
 
--behaviour(myxi_policy).
+-behaviour(myxi_middleware).
 
 -include("include/myxi.hrl").
 
 %% Callbacks
--export([inject/1]).
+-export([call/1]).
 
 %%
 %% Callbacks
 %%
 
--spec inject(#policy{}) -> #policy{}.
+-spec call(#mware{}) -> #mware{}.
 %% @doc
-inject(Policy = #policy{endpoint = Endpoint,
-                        method   = #'queue.bind'{exchange = Exchange},
-                        pre      =  Pre}) ->
-    Policy#policy{pre = pre_commands(Endpoint, Exchange) ++ Pre};
-inject(Policy) ->
-    Policy.
+call(MW = #mware{endpoint = Endpoint,
+                      method   = #'queue.bind'{exchange = Exchange},
+                      pre      =  Pre}) ->
+    MW#mware{pre = pre_commands(Endpoint, Exchange) ++ Pre};
+call(MW) ->
+    MW.
 
 %%
 %% Private

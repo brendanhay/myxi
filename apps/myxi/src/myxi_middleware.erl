@@ -8,7 +8,7 @@
 %% @doc
 %%
 
--module(myxi_policy).
+-module(myxi_middleware).
 
 -include("include/myxi.hrl").
 
@@ -16,29 +16,34 @@
 -export([behaviour_info/1]).
 
 %% API
--export([handler/3]).
+-export([wrap/3]).
+
+-type result()   :: {method() | unmodified, [action()], [action()]}.
+-type composed() :: fun((method()) -> result()).
+
+-export_types([result/0,
+               composed/0]).
 
 %%
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{inject, 1}] | undefined.
+-spec behaviour_info(_) -> [{call, 1}] | undefined.
 %% @hidden
-behaviour_info(callbacks) -> [{inject, 1}];
+behaviour_info(callbacks) -> [{call, 1}];
 behaviour_info(_Other)    -> undefined.
 
 %%
 %% API
 %%
 
--spec handler(#endpoint{}, protocol(), [policy()])
-             -> fun((method()) -> method() | false).
+-spec wrap(#endpoint{}, protocol(), [mware()]) -> composed().
 %% @doc
-handler(Endpoint, Protocol, Policies) ->
-    Fn = compose([fun(A) -> P:inject(A) end || P <- Policies]),
-    Args = #policy{endpoint = Endpoint,
+wrap(Endpoint, Protocol, MW) ->
+    Fn = compose([fun(A) -> P:call(A) end || P <- MW]),
+    Args = #mware{endpoint = Endpoint,
                    protocol = Protocol},
-    fun(M) -> return(M, Fn(Args#policy{method = M})) end.
+    fun(M) -> actions(M, Fn(Args#mware{method = M})) end.
 
 %%
 %% Private
@@ -52,9 +57,9 @@ compose(Fns) -> lists:foldl(fun compose/2, fun(X) -> X end, Fns).
 %% @private
 compose(F, G) -> fun(X) -> F(G(X)) end.
 
--spec return(method(), #policy{}) -> {method() | unmodified, [action()], [action()]}.
+-spec actions(method(), #mware{}) -> result().
 %% @private
-return(Original, #policy{method = New, pre = Pre, post = Post}) ->
+actions(Original, #mware{method = New, pre = Pre, post = Post}) ->
     Status = case New =/= Original of
                  true  -> New;
                  false -> unmodified

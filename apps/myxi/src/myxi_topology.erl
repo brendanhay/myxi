@@ -58,7 +58,7 @@ find_exchange(Name) ->
 %% loading it into ets if succcessful
 verify_exchange(Name, Backend) ->
     lager:info("VERIFY-EXCHANGE ~s -> ~s", [Name, Backend]),
-    {#endpoint{node = Node}, _Policies} = myxi_balancer:next(Backend),
+    {#endpoint{node = Node}, _MW} = myxi_balancer:next(Backend),
     Resource = rabbit_misc:r(<<"/">>, exchange, Name),
     case rpc:call(Node, rabbit_misc, dirty_read, [{rabbit_exchange, Resource}]) of
         {ok, Exchange} ->

@@ -72,7 +72,7 @@ balancer_spec({Name, Config}) ->
     Args = [Name,
             Mod,
             endpoints(Name, Config),
-            myxi:option(policies, Config),
+            myxi:option(middleware, Config),
             random:uniform(?BALANCER_DELAY)],
     {Name, {myxi_balancer, start_link, Args},
      permanent, 2000, worker, [myxi_balancer]}.

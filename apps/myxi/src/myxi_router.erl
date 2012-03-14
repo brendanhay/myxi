@@ -39,7 +39,7 @@ new(Frontend) ->
     Mod:new(Routes).
 
 -spec route(router(), #'connection.start_ok'{}, protocol())
-           -> {#endpoint{}, [policy()]} | down.
+           -> {#endpoint{}, [mware()]} | down.
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),

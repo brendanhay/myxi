@@ -20,7 +20,9 @@
 
 -type address()  :: {inet:hostname() | inet:ip_address(), inet:port_number()}.
 
--type policy()   :: myxi_ha_policy.
+-type mware()    :: myxi_ha_middleware |
+                    myxi_topology_middleware |
+                    myxi_federation_middleware.
 
 -type router()   :: myxi_user_router.
 
@@ -29,7 +31,7 @@
 -type frontend() :: [{ip, string()} |
                      {port, pos_integer()} |
                      {max, pos_integer()} |
-                     {policys, [policy()]} |
+                     {mwares, [mware()]} |
                      {route, router(), [any()]}].
 
 -type backend()  :: [{atom(),
@@ -55,7 +57,7 @@
                    backend   :: atom(),
                    address   :: address()}).
 
--record(policy,   {method    :: method | undefined,
+-record(mware,   {method    :: method | undefined,
                    endpoint  :: #endpoint{},
                    protocol  :: protocol(),
                    pre = []  :: [action()],
