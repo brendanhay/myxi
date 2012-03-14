@@ -44,18 +44,22 @@
 -type protocol() :: rabbit_framing:protocol().
 -type method()   :: rabbit_framing:amqp_method_record().
 
+-type action()   :: {apply, module(), atom(), list()} |
+                    {send | recv, method() | pos_integer() | binary()}.
+
 %%
 %% Records
 %%
 
--record(endpoint, {node           :: node(),
-                   backend        :: atom(),
-                   address        :: address()}).
+-record(endpoint, {node      :: node(),
+                   backend   :: atom(),
+                   address   :: address()}).
 
--record(policy,   {method         :: method | undefined,
-                   endpoint       :: #endpoint{},
-                   protocol       :: protocol(),
-                   callbacks = [] :: [fun(() -> ok)]}).
+-record(policy,   {method    :: method | undefined,
+                   endpoint  :: #endpoint{},
+                   protocol  :: protocol(),
+                   pre = []  :: [action()],
+                   post = [] :: [action()]}).
 
 %%
 %% GProc

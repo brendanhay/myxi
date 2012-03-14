@@ -42,7 +42,9 @@
             {soundcloud, [
                 {balancer, myxi_roundrobin_balancer},
                 {policies, [
-                    myxi_federation_policy
+                    myxi_topology_policy,
+                    myxi_federation_policy,
+                    myxi_ha_policy
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},
@@ -53,7 +55,9 @@
             {activities, [
                 {balancer, myxi_roundrobin_balancer},
                 {policies, [
-                    myxi_federation_policy
+                    myxi_topology_policy,
+                    myxi_federation_policy,
+                    myxi_ha_policy
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},
