@@ -15,18 +15,21 @@
 -include("include/myxi.hrl").
 
 %% Callbacks
--export([intercept/1]).
+-export([inject/1]).
 
--define(VERIFY_DELAY, 500).
+-define(CONN_PARAMS(Node), #amqp_params_direct{username = <<"guest">>,
+                                               node     = Node}).
 
 %%
 %% Callbacks
 %%
 
--spec intercept(#policy{}) -> method().
+-spec inject(#policy{}) -> method().
 %% @doc
-intercept(Policy = #policy{backend = Backend, method = Method, callbacks = Callbacks}) ->
-    case handle(Method, Backend) of
+inject(Policy = #policy{endpoint  = Endpoint,
+                        method    = Method,
+                        callbacks = Callbacks}) ->
+    case handle(Method, Endpoint) of
         {false, AddCallbacks} ->
             Policy#policy{callbacks = Callbacks ++ AddCallbacks};
         false ->
@@ -37,25 +40,46 @@ intercept(Policy = #policy{backend = Backend, method = Method, callbacks = Callb
 %% Private
 %%
 
-handle(#'queue.bind'{queue = Queue, exchange = Exchange}, Backend) ->
-    %% Find which Backend, Exchange lives on
-    case myxi_topology:find_exchange(Exchange) of
+handle(#'queue.bind'{exchange = Name},
+       _Endpoint = #endpoint{node = Node, backend = Backend}) ->
+    %% Find which Backend, Name lives on
+    case myxi_topology:find_exchange(Name) of
         false ->
-            lager:error("QUEUE-EX-BIND ~s not found", [Exchange]),
+            %% Temporarily asserting that the exchange must exist
+            error({federation_policy, bind_failed});
+        {Backend, _Declare} ->
             false;
-        Backend ->
-            %% Same, alles ok
-            lager:notice("FED-EXIST ~s found on ~s", [Exchange, Backend]),
-            false;
-        Other ->
-            %% Federate!
-            lager:notice("FED-FEDERATE ~s found on ~s but current is ~s",
-                         [Exchange, Other, Backend]),
+        {Other, Declare} ->
+            declare(federated(Declare, Other), Node),
+            %% return false so the bind goes through
             false
     end;
 
-handle(#'exchange.declare'{exchange = Name}, Backend) ->
+handle(#'exchange.declare'{exchange = Name}, #endpoint{backend = Backend}) ->
     {false, [fun() -> myxi_topology:verify_exchange(Name, Backend) end]};
 
 handle(_NoMatch, _Backend) ->
     false.
+
+federated(Declare = #'exchange.declare'{type = Type, arguments = Args}, Set) ->
+    NewArgs = merge_keylist(Args, [{type, Type}, {upstream_set, Set}]),
+    Declare#'exchange.declare'{type = <<"x-federation">>, arguments = NewArgs}.
+
+merge_keylist(L1, L2) ->
+    Fold = fun({K, V}, A) -> lists:keystore(K, 1, A, {K, V}) end,
+    lists:foldl(Fold, L1, L2).
+
+declare(Declare, Node) ->
+    lager:notice("FED-START ~p on ~p", [Declare, Node]),
+    {ok, Conn} = amqp_connection:start(?CONN_PARAMS(Node)),
+    {ok, Chan} = amqp_connection:open_channel(Conn),
+    try
+        #'exchange.declare_ok'{} = amqp_channel:call(Chan, Declare),
+        lager:notice("FED-SUCCESS ~s declared on ~p",
+                     [Declare#'exchange.declare'.exchange, Node]),
+        amqp_channel:close(Chan),
+        amqp_connection:close(Conn)
+    catch
+        exit:Reason ->
+            lager:error("FED-FAILURE ~p", [Reason])
+    end.

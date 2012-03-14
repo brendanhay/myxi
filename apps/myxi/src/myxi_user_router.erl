@@ -26,7 +26,7 @@
 select_balancer(#'connection.start_ok'{response = Response}, Protocol) ->
     User = user(Response, Protocol),
     [Name|_] = [B || [{user, U}, {backend, B}] <- Routes, U =:= User],
-    lager:info("ROUTE ~s to ~p", [User, Name]),
+    lager:info("USER-ROUTER ~s to ~p", [User, Name]),
     Name.
 
 %%

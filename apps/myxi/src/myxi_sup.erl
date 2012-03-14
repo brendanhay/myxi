@@ -82,7 +82,7 @@ endpoints(Name, Config) ->
 
 endpoint(Name, Options) ->
     Node = myxi:option(node, Options),
-    #endpoint{node   = Node,
-             backend = Name,
-             host    = myxi:hostname(Node),
-             port    = myxi:option(port, Options)}.
+    Addr = {myxi:hostname(Node), myxi:option(port, Options)},
+    #endpoint{node    = Node,
+              backend = Name,
+              address = Addr}.

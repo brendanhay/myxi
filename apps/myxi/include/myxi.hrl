@@ -9,8 +9,7 @@
 %% @doc
 %%
 
--include_lib("rabbit_common/include/rabbit.hrl").
--include_lib("rabbit_common/include/rabbit_framing.hrl").
+-include_lib("amqp_client/include/amqp_client.hrl").
 
 %%
 %% Types
@@ -19,7 +18,7 @@
 -type version()  :: {0 | 8,0 | 9,0 | 1}.
 -type options()  :: [proplists:property()].
 
--type address()  :: {inet:ip_address(), inet:port_number()}.
+-type address()  :: {inet:hostname() | inet:ip_address(), inet:port_number()}.
 
 -type policy()   :: myxi_ha_policy.
 
@@ -51,12 +50,10 @@
 
 -record(endpoint, {node           :: node(),
                    backend        :: atom(),
-                   host           :: inet:hostname(),
-                   port           :: inet:port_number()}).
+                   address        :: address()}).
 
 -record(policy,   {method         :: method | undefined,
-                   backend        :: atom(),
-                   address        :: address(),
+                   endpoint       :: #endpoint{},
                    protocol       :: protocol(),
                    callbacks = [] :: [fun(() -> ok)]}).
 

@@ -17,7 +17,6 @@
 
 %% API
 -export([start_link/0,
-         %% add_exchange/2,
          find_exchange/1,
          verify_exchange/2,
          add_endpoints/1]).
@@ -47,15 +46,11 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-%% add_exchange(Declare = #'exchange.declare'{exchange = Name}, Backend) ->
-%%     lager:info("MAP-EXCHANGE ~s -> ~s", [Name, Backend]),
-%%     ets:insert(?TABLE, #e{name = Name, backend = Backend, declare = Declare}).
-
 find_exchange(Name) ->
     %% Currently undefined if multiple exchanges declared
     %% on different backends with the same name
-    case ets:match(?TABLE, #e{name = Name, backend = '$1',  _ = '_'}) of
-        [[B]|_] -> B;
+    case ets:match(?TABLE, #e{name = Name, backend = '$1',  declare = '$2'}) of
+        [[B, D]|_] -> {B, D};
         []    -> false
     end.
 
@@ -155,9 +150,17 @@ declare(#exchange{name        = #resource{name = Name},
                   internal    = Internal,
                   arguments   = Args}) ->
     #'exchange.declare'{exchange   = Name,
-                       type        = Type,
+                       type        = ensure_bin(Type),
                        durable     = Durable,
                        auto_delete = Auto,
                        internal    = Internal,
                        nowait      = false,
                        arguments   = Args}.
+
+-spec ensure_bin(atom() | binary()) -> binary().
+%% @private
+ensure_bin(Atom) when is_atom(Atom) ->
+    list_to_binary(atom_to_list(Atom));
+ensure_bin(Bin) ->
+    Bin.
+

@@ -173,22 +173,22 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
     case myxi_router:route(Router, StartOk, Protocol) of
-        {Name, Address, Policies} ->
-            start_backend(Name, Address, Policies, Replay, Protocol, State);
+        {Endpoint, Policies} ->
+            start_backend(Endpoint, Policies, Replay, Protocol, State);
         down ->
             down
     end.
 
--spec start_backend(atom(), address(), [policy()], iolist(), protocol(), #s{})
+-spec start_backend(#endpoint{}, [policy()], iolist(), protocol(), #s{})
                    -> #s{} | down.
 %% @private
-start_backend(Name, Address, Policies, Replay, Protocol, State) ->
+start_backend(Endpoint = #endpoint{address = Addr},
+              Policies, Replay, Protocol, State) ->
     %% Start a backend, replaying the previous client data to the server
-    case myxi_backend:start_link(self(), Address, Replay) of
+    case myxi_backend:start_link(self(), Addr, Replay) of
         {ok, Pid, Sock} ->
             %% Create a fun composed of all available policies
-            Handler =
-                myxi_policy:handler(Name, Address, Protocol, Policies),
+            Handler = myxi_policy:handler(Endpoint, Protocol, Policies),
             State#s{backend = Pid, server = Sock, policy = Handler};
         _Error ->
             down

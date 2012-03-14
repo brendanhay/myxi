@@ -39,13 +39,8 @@ new(Frontend) ->
     Mod:new(Routes).
 
 -spec route(router(), #'connection.start_ok'{}, protocol())
-           -> {atom(), address(), [policy()]}.
+           -> {#endpoint{}, [policy()]} | down.
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),
-    case myxi_balancer:next(Balancer) of
-        {#endpoint{host = Host, port = Port}, Policies} ->
-            {Balancer, {Host, Port}, Policies};
-        down ->
-            down
-    end.
+    myxi_balancer:next(Balancer).

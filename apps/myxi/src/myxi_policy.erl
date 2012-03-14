@@ -16,28 +16,27 @@
 -export([behaviour_info/1]).
 
 %% API
--export([handler/4]).
+-export([handler/3]).
 
 %%
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{intercept, 1}] | undefined.
+-spec behaviour_info(_) -> [{inject, 1}] | undefined.
 %% @hidden
-behaviour_info(callbacks) -> [{intercept, 1}];
+behaviour_info(callbacks) -> [{inject, 1}];
 behaviour_info(_Other)    -> undefined.
 
 %%
 %% API
 %%
 
--spec handler(atom(), address(), protocol(), [policy()])
+-spec handler(#endpoint{}, protocol(), [policy()])
              -> fun((method()) -> method() | false).
 %% @doc
-handler(Backend, Address, Protocol, Policies) ->
-    Fn = compose([fun(A) -> P:intercept(A) end || P <- Policies]),
-    Args = #policy{backend  = Backend,
-                   address  = Address,
+handler(Endpoint, Protocol, Policies) ->
+    Fn = compose([fun(A) -> P:inject(A) end || P <- Policies]),
+    Args = #policy{endpoint = Endpoint,
                    protocol = Protocol},
     fun(M) -> compare(M, Fn(Args#policy{method = M})) end.
 
