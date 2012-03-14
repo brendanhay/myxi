@@ -26,7 +26,7 @@
 inject(Policy = #policy{endpoint = Endpoint,
                         method   = #'queue.bind'{exchange = Exchange},
                         pre      =  Pre}) ->
-    Policy#policy{pre = [pre_commands(Node, Backend, Exchange)|Pre]};
+    Policy#policy{pre = pre_commands(Endpoint, Exchange) ++ Pre};
 inject(Policy) ->
     Policy.
 
@@ -43,7 +43,7 @@ pre_commands(#endpoint{node = Node, backend = Backend}, Exchange) ->
         {Backend, _Declare} ->
             [];
         {Other, Declare} ->
-            case upstream_exists(Other) of
+            case upstream_exists(Node, Exchange, Other) of
                 true  -> federate(Declare, Other);
                 false -> []
             end
@@ -69,11 +69,11 @@ args(Args, Type, Upstream) ->
 %% @private
 upstream_exists(Node, Exchange, Upstream) ->
     %% from_set only looks at #resrouce.name/.vhost
-    Name = #resource{name = Exchange, vhost = <<"/">>},
+    Name = #resource{name = Exchange, virtual_host = <<"/">>},
     Set = list_to_binary(atom_to_list(Upstream)),
     case rpc:call(Node, rabbit_federation_upstream, from_set, [Set, Name]) of
         {error, Error} ->
-            lager:error("FED-ERROR upstream_set: ~p", [Error]),
+            lager:error("FED-FAILURE upstream_set: ~p", [Error]),
             false;
         {ok, _Any} ->
             true
