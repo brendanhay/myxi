@@ -30,6 +30,3 @@ call(MW = #mware{method   = #'exchange.declare'{exchange = Name},
     MW#mware{post = [Callback|Post]};
 call(MW) ->
     MW.
-
-
-

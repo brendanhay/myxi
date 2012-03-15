@@ -31,9 +31,9 @@
 
 -type state() :: pos_integer().
 
--record(e, {name    :: binary(),
-            backend :: atom(),
-            declare :: #'exchange.declare'{}}).
+-record(ex, {name    :: binary(),
+             backend :: atom(),
+             declare :: #'exchange.declare'{}}).
 
 -define(TABLE, ?MODULE).
 
@@ -56,7 +56,7 @@ add_endpoints(Endpoints) ->
 -spec find_exchange(binary()) -> {atom(), #'exchange.declare'{}} | not_found.
 %% @doc
 find_exchange(Name) ->
-    case ets:match(?TABLE, #e{name = Name, backend = '$1',  declare = '$2'}) of
+    case ets:match(?TABLE, #ex{name = Name, backend = '$1',  declare = '$2'}) of
         [[B, D]|_] -> {B, D};
         []         -> not_found
     end.
@@ -64,15 +64,7 @@ find_exchange(Name) ->
 -spec verify_exchange(binary(), atom()) -> exists | not_found.
 %% @doc
 verify_exchange(Name, Backend) ->
-    M = do([error_m ||
-               case default_exchange(Name) of
-                   true  -> fail(default_exchange);
-                   false -> return(valid)
-               end,
-               {Endpoint, _MW} <- myxi_balancer:next(Backend),
-               Exchange        <- locate_exchange(Name, Endpoint),
-               add_exchange(Exchange, Backend)]),
-    case M of
+    case run_exchange_verification(Name, Backend) of
         ok                        -> exists;
         {error, default_exchange} -> exists;
         {error, _Reason}          -> not_found
@@ -87,7 +79,7 @@ verify_exchange(Name, Backend) ->
 init([]) ->
     lager:info("TOPOLOGY-INIT"),
     process_flag(trap_exit, true),
-    {ok, ets:new(?TABLE, [bag, public, named_table, {keypos, #e.name}])}.
+    {ok, ets:new(?TABLE, [bag, public, named_table, {keypos, #ex.name}])}.
 
 -spec handle_call(info, _, state()) -> {reply, ok, state()}.
 %% @hidden
@@ -114,6 +106,18 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
+-spec run_exchange_verification(binary(), atom()) -> error_m(ok, term()).
+%% @private
+run_exchange_verification(Name, Backend) ->
+    do([error_m ||
+           case default_exchange(Name) of
+               true  -> fail(default_exchange);
+               false -> return(valid)
+           end,
+           {Endpoint, _MW} <- myxi_balancer:next(Backend),
+           Exchange        <- locate_exchange(Name, Endpoint),
+           add_exchange(Exchange, Backend)]).
+
 -spec locate_exchange(binary(), #endpoint{}) -> error_m(#exchange{}, not_found).
 %% @private
 locate_exchange(Name, #endpoint{node = Node}) ->
@@ -124,7 +128,7 @@ locate_exchange(Name, #endpoint{node = Node}) ->
 -spec add_exchange(#exchange{}, atom()) -> ok.
 %% @private
 add_exchange(Exchange, Backend) ->
-    Record = #e{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
+    Record = #ex{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
     ets:insert(?TABLE, Record),
     ok.
 
