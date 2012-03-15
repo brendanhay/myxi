@@ -95,7 +95,6 @@ handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
         end,
     {reply, Selected, State#s{up = Shuffled}}.
 
-
 -spec handle_cast(_, #s{}) -> {noreply, #s{}}.
 %% @hidden
 handle_cast(_Msg, State) -> {noreply, State}.

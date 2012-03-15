@@ -52,13 +52,19 @@ find_exchange(Name) ->
         []    -> false
     end.
 
--spec verify_exchange(binary(), atom()) -> error_m(success, term()).
+-spec verify_exchange(binary(), atom()) -> exists | not_found.
 %% @doc
 verify_exchange(Name, Backend) ->
-    do([error_m ||
-           {Endpoint, _MW} <- myxi_balancer:next(Backend),
-           Exchange        <- locate_exchange(Name, Endpoint),
-           add_exchange(Exchange, Backend)]).
+    case do([error_m ||
+                valid           <- validate_exchange(Name),
+                {Endpoint, _MW} <- myxi_balancer:next(Backend),
+                Exchange        <- locate_exchange(Name, Endpoint),
+                add_exchange(Exchange, Backend)]) of
+        true                      -> exists;
+        {error, default_exchange} -> exists;
+        false                     -> not_found;
+        {error, _Reason}          -> not_found
+    end.
 
 -spec add_endpoints([#endpoint{}]) -> ok.
 %% @doc
@@ -103,6 +109,27 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
+-spec validate_exchange(binary()) -> error_m(valid, default_exchange).
+%% @private
+validate_exchange(Name) ->
+    case default_exchange(Name) of
+        true  -> error_m:return(valid);
+        false -> error_m:fail(default_exchange)
+    end.
+
+-spec locate_exchange(binary(), #endpoint{}) -> error_m(#exchange{}, not_found).
+%% @private
+locate_exchange(Name, #endpoint{node = Node}) ->
+    Resource = rabbit_misc:r(<<"/">>, exchange, Name),
+    Args = [{rabbit_exchange, Resource}],
+    rpc:call(Node, rabbit_misc, dirty_read, Args).
+
+-spec add_exchange(#exchange{}, atom()) -> true | false.
+%% @private
+add_exchange(Exchange, Backend) ->
+    Record = #e{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
+    ets:insert(?TABLE, Record).
+
 -spec list_exchanges(#endpoint{}) -> [{binary(), node(), #exchange{}}].
 %% @private
 list_exchanges(#endpoint{node = Node, backend = Backend}) ->
@@ -112,25 +139,6 @@ list_exchanges(#endpoint{node = Node, backend = Backend}) ->
         Exchanges ->
             [{name(E), Backend, declare(E)}
              || E <- Exchanges, not default_exchange(E)]
-    end.
-
--spec locate_exchange(binary(), #endpoint{}) -> error_m(#exchange{}, not_found).
-locate_exchange(Name, #endpoint{node = Node}) ->
-    case default_exchange(Name) of
-        true ->
-            error_m:fail(default_exchange);
-        false ->
-            Resource = rabbit_misc:r(<<"/">>, exchange, Name),
-            Args = [{rabbit_exchange, Resource}],
-            rpc:call(Node, rabbit_misc, dirty_read, Args)
-    end.
-
--spec add_exchange(#exchange{}, atom()) -> error_m(success, ets_insert_failure).
-add_exchange(Exchange, Backend) ->
-    Record = #e{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
-    case ets:insert(?TABLE, Record) of
-        true  -> error_m:return(success);
-        false -> error_m:fail(ets_insert_failure)
     end.
 
 -spec default_exchange(#exchange{} | binary()) -> true | false.
