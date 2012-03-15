@@ -23,10 +23,13 @@
 
 -spec call(#mware{}) -> #mware{}.
 %% @doc
-call(MW = #mware{method = Method = #'queue.declare'{arguments = Args}}) ->
-    MW#mware{method = Method#'queue.declare'{arguments = args(Args)}};
-call(MW) ->
-    MW.
+call(MW = #mware{method = Method}) ->
+    case Method of
+        #'queue.declare'{arguments = Args} ->
+            MW#mware{method = Method#'queue.declare'{arguments = args(Args)}};
+        _Other ->
+            Mw
+    end.
 
 %%
 %% Private
