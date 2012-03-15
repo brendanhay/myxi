@@ -46,10 +46,19 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+-spec add_endpoints([#endpoint{}]) -> ok.
+%% @doc
+add_endpoints(Endpoints) ->
+    Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
+    lager:info("TOPOLOGY-INS ~p", [Exchanges]),
+    ets:insert(?TABLE, Exchanges).
+
+-spec find_exchange(binary()) -> {atom(), #'exchange.declare'{}} | not_found.
+%% @doc
 find_exchange(Name) ->
-    case ets:match(?TABLE, #e{name = Name, backend = '$1',  declare = '$2'}) of
+    case ets:match(?TABLE, #e{name = Name, backend = '$1', declare = '$2'}) of
         [[B, D]|_] -> {B, D};
-        []    -> false
+        []         -> not_found
     end.
 
 -spec verify_exchange(binary(), atom()) -> exists | not_found.
@@ -65,13 +74,6 @@ verify_exchange(Name, Backend) ->
         false                     -> not_found;
         {error, _Reason}          -> not_found
     end.
-
--spec add_endpoints([#endpoint{}]) -> ok.
-%% @doc
-add_endpoints(Endpoints) ->
-    Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
-    lager:info("TOPOLOGY-INS ~p", [Exchanges]),
-    ets:insert(?TABLE, Exchanges).
 
 %%
 %% Callbacks

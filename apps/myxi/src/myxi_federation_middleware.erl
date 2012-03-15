@@ -38,7 +38,7 @@ call(MW) ->
 %% @private
 pre_commands(#endpoint{node = Node, backend = Backend}, Exchange) ->
     case myxi_topology:find_exchange(Exchange) of
-        false ->
+        not_found ->
             [];
         {Backend, _Declare} ->
             [];
