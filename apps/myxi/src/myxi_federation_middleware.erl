@@ -24,9 +24,9 @@
 -spec call(#mware{}) -> #mware{}.
 %% @doc
 call(MW = #mware{endpoint = Endpoint,
-                      method   = #'queue.bind'{exchange = Exchange},
-                      pre      =  Pre}) ->
-    MW#mware{pre = pre_commands(Endpoint, Exchange) ++ Pre};
+                 method   = #'queue.bind'{exchange = Exchange},
+                 pre      =  Pre}) ->
+    MW#mware{pre = pre(Endpoint, Exchange) ++ Pre};
 call(MW) ->
     MW.
 
@@ -34,15 +34,13 @@ call(MW) ->
 %% Private
 %%
 
--spec pre_commands(#endpoint{}, binary()) -> [action()].
+-spec pre(#endpoint{}, binary()) -> [action()].
 %% @private
-pre_commands(#endpoint{node = Node, backend = Backend}, Exchange) ->
+pre(#endpoint{node = Node, backend = Backend}, Exchange) ->
     case myxi_topology:find_exchange(Exchange) of
-        not_found ->
-            [];
-        {Backend, _Declare} ->
-            [];
-        {Other, Declare} ->
+        not_found           -> [];
+        {Backend, _Declare} -> [];
+        {Other, Declare}    ->
             case upstream_exists(Node, Exchange, Other) of
                 true  -> federate(Declare, Other);
                 false -> []

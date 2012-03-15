@@ -56,7 +56,7 @@ add_endpoints(Endpoints) ->
 -spec find_exchange(binary()) -> {atom(), #'exchange.declare'{}} | not_found.
 %% @doc
 find_exchange(Name) ->
-    case ets:match(?TABLE, #e{name = Name, backend = '$1', declare = '$2'}) of
+    case ets:match(?TABLE, #e{name = Name, backend = '$1',  declare = '$2'}) of
         [[B, D]|_] -> {B, D};
         []         -> not_found
     end.
@@ -64,14 +64,17 @@ find_exchange(Name) ->
 -spec verify_exchange(binary(), atom()) -> exists | not_found.
 %% @doc
 verify_exchange(Name, Backend) ->
-    case do([error_m ||
-                valid           <- validate_exchange(Name),
-                {Endpoint, _MW} <- myxi_balancer:next(Backend),
-                Exchange        <- locate_exchange(Name, Endpoint),
-                add_exchange(Exchange, Backend)]) of
-        true                      -> exists;
+    M = do([error_m ||
+               case default_exchange(Name) of
+                   true  -> fail(default_exchange);
+                   false -> return(valid)
+               end,
+               {Endpoint, _MW} <- myxi_balancer:next(Backend),
+               Exchange        <- locate_exchange(Name, Endpoint),
+               add_exchange(Exchange, Backend)]),
+    case M of
+        ok                        -> exists;
         {error, default_exchange} -> exists;
-        false                     -> not_found;
         {error, _Reason}          -> not_found
     end.
 
@@ -111,14 +114,6 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
--spec validate_exchange(binary()) -> error_m(valid, default_exchange).
-%% @private
-validate_exchange(Name) ->
-    case default_exchange(Name) of
-        true  -> error_m:return(valid);
-        false -> error_m:fail(default_exchange)
-    end.
-
 -spec locate_exchange(binary(), #endpoint{}) -> error_m(#exchange{}, not_found).
 %% @private
 locate_exchange(Name, #endpoint{node = Node}) ->
@@ -126,11 +121,12 @@ locate_exchange(Name, #endpoint{node = Node}) ->
     Args = [{rabbit_exchange, Resource}],
     rpc:call(Node, rabbit_misc, dirty_read, Args).
 
--spec add_exchange(#exchange{}, atom()) -> true | false.
+-spec add_exchange(#exchange{}, atom()) -> ok.
 %% @private
 add_exchange(Exchange, Backend) ->
     Record = #e{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
-    ets:insert(?TABLE, Record).
+    ets:insert(?TABLE, Record),
+    ok.
 
 -spec list_exchanges(#endpoint{}) -> [{binary(), node(), #exchange{}}].
 %% @private
