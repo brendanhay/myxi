@@ -9,7 +9,21 @@
 %% @doc
 %%
 
--include_lib("amqp_client/include/amqp_client.hrl").
+-include_lib("rabbit_common/include/rabbit.hrl").
+-include_lib("rabbit_common/include/rabbit_framing.hrl").
+
+%%
+%% Parse Transforms
+%%
+
+%% Logging
+-compile({parse_transform, lager_transform}).
+
+%% Currying
+-compile({parse_transform, cut}).
+
+%% Monads
+-compile({parse_transform, do}).
 
 %%
 %% Types
@@ -48,6 +62,12 @@
 
 -type action()   :: {apply, module(), atom(), list()} |
                     {send | recv, method() | pos_integer() | binary()}.
+
+%%
+%% Monads
+%%
+
+-type error_m(Result, Error) :: ok | {ok, Result} | {error, Error}.
 
 %%
 %% Records

@@ -30,6 +30,9 @@
          code_change/3]).
 
 -type check() :: check_up | check_down.
+-type next()  :: {ok, {#endpoint{}, [mware()]}} | down.
+
+-export_types([next/0]).
 
 -record(s, {mod       :: module(),
             name      :: atom(),
@@ -64,7 +67,7 @@ start_link(Name, Mod, Endpoints, MW, Delay) ->
     State = #s{name = Name, mod = Mod, up = Endpoints, mware = MW},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
--spec next(pid()) -> {#endpoint{}, [mware()]} | down.
+-spec next(pid()) -> next().
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 
@@ -81,15 +84,14 @@ init({State, Delay}) ->
     init_timers(Delay),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{})
-                 -> {reply, {#endpoint{}, [mware()]} | down, #s{}}.
+-spec handle_call(next, reference(), #s{}) -> {reply, next(), #s{}}.
 %% @hidden
 handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
     {Next, Shuffled} = Mod:next(Up),
     Selected =
         case Next of
-            Endpoint = #endpoint{} -> {Endpoint, MW};
-            down                   -> down
+            Endpoint = #endpoint{} -> {ok, {Endpoint, MW}};
+            down                   -> {error, down}
         end,
     {reply, Selected, State#s{up = Shuffled}}.
 

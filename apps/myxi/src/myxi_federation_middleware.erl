@@ -70,7 +70,7 @@ args(Args, Type, Upstream) ->
 upstream_exists(Node, Exchange, Upstream) ->
     %% from_set only looks at #resrouce.name/.vhost
     Name = #resource{name = Exchange, virtual_host = <<"/">>},
-    Set = list_to_binary(atom_to_list(Upstream)),
+    Set = atom_to_binary(Upstream, latin1),
     case rpc:call(Node, rabbit_federation_upstream, from_set, [Set, Name]) of
         {ok, _Any} ->
             true;

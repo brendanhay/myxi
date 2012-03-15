@@ -49,7 +49,7 @@ stop() ->
 
 -spec bin(atom() | list() | binary()) -> binary().
 %% @doc
-bin(Atom) when is_atom(Atom)  -> bin(atom_to_list(Atom));
+bin(Atom) when is_atom(Atom)  -> atom_to_binary(Atom, latin1);
 bin(List) when is_list(List)  -> list_to_binary(List);
 bin(Bin)  when is_binary(Bin) -> Bin.
 

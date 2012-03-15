@@ -173,9 +173,9 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
     case myxi_router:route(Router, StartOk, Protocol) of
-        {Endpoint, MW} ->
+        {ok, {Endpoint, MW}} ->
             start_backend(Endpoint, MW, Replay, Protocol, State);
-        down ->
+        {error, down} ->
             down
     end.
 

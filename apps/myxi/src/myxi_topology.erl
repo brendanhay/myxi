@@ -47,35 +47,21 @@ start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 find_exchange(Name) ->
-    %% Currently undefined if multiple exchanges declared
-    %% on different backends with the same name
     case ets:match(?TABLE, #e{name = Name, backend = '$1',  declare = '$2'}) of
         [[B, D]|_] -> {B, D};
         []    -> false
     end.
 
-%% Get a node from the balencer/backend and then find the exchange,
-%% loading it into ets if succcessful
+-spec verify_exchange(binary(), atom()) -> error_m(success, term()).
+%% @doc
 verify_exchange(Name, Backend) ->
-    lager:info("VERIFY-EXCHANGE ~s -> ~s", [Name, Backend]),
-    {#endpoint{node = Node}, _MW} = myxi_balancer:next(Backend),
-    Resource = rabbit_misc:r(<<"/">>, exchange, Name),
-    case rpc:call(Node, rabbit_misc, dirty_read, [{rabbit_exchange, Resource}]) of
-        {ok, Exchange} ->
-            case default_exchange(Exchange) of
-                true ->
-                    true;
-                false ->
-                    ets:insert(?TABLE, #e{name    = Name,
-                                          backend = Backend,
-                                          declare = declare(Exchange)})
-            end;
-        {error, not_found} ->
-            false
-    end.
+    do([error_m ||
+           {Endpoint, _MW} <- myxi_balancer:next(Backend),
+           Exchange        <- locate_exchange(Name, Endpoint),
+           add_exchange(Exchange, Backend)]).
 
 -spec add_endpoints([#endpoint{}]) -> ok.
-%% @private
+%% @doc
 add_endpoints(Endpoints) ->
     Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
     lager:info("TOPOLOGY-INS ~p", [Exchanges]),
@@ -128,10 +114,31 @@ list_exchanges(#endpoint{node = Node, backend = Backend}) ->
              || E <- Exchanges, not default_exchange(E)]
     end.
 
--spec default_exchange(#exchange{}) -> true | false.
+-spec locate_exchange(binary(), #endpoint{}) -> error_m(#exchange{}, not_found).
+locate_exchange(Name, #endpoint{node = Node}) ->
+    case default_exchange(Name) of
+        true ->
+            error_m:fail(default_exchange);
+        false ->
+            Resource = rabbit_misc:r(<<"/">>, exchange, Name),
+            Args = [{rabbit_exchange, Resource}],
+            rpc:call(Node, rabbit_misc, dirty_read, Args)
+    end.
+
+-spec add_exchange(#exchange{}, atom()) -> error_m(success, ets_insert_failure).
+add_exchange(Exchange, Backend) ->
+    Record = #e{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
+    case ets:insert(?TABLE, Record) of
+        true  -> error_m:return(success);
+        false -> error_m:fail(ets_insert_failure)
+    end.
+
+-spec default_exchange(#exchange{} | binary()) -> true | false.
 %% @private
-default_exchange(Exchange) ->
-    case name(Exchange) of
+default_exchange(Exchange = #exchange{})  ->
+    default_exchange(name(Exchange));
+default_exchange(Name)  ->
+    case Name of
         <<"amq.", _/binary>>    -> true;
         Bin when size(Bin) == 0 -> true;
         _Other                  -> false
@@ -150,17 +157,10 @@ declare(#exchange{name        = #resource{name = Name},
                   internal    = Internal,
                   arguments   = Args}) ->
     #'exchange.declare'{exchange   = Name,
-                       type        = ensure_bin(Type),
+                       type        = myxi:bin(Type),
                        durable     = Durable,
                        auto_delete = Auto,
                        internal    = Internal,
                        nowait      = false,
                        arguments   = Args}.
-
--spec ensure_bin(atom() | binary()) -> binary().
-%% @private
-ensure_bin(Atom) when is_atom(Atom) ->
-    list_to_binary(atom_to_list(Atom));
-ensure_bin(Bin) ->
-    Bin.
 
