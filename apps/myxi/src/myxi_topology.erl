@@ -148,9 +148,7 @@ list_exchanges(#endpoint{node = Node, backend = Backend}) ->
             lager:error("TOPOLOGY-ERR ~s unavailable", [Backend]),
             [];
         Exchanges ->
-            [#ex{name    = name(E),
-                 backend = Backend,
-                 declare = declare(E)}
+            [#ex{name = name(E), backend = Backend, declare = declare(E)}
              || E <- Exchanges, not default_exchange(E)]
     end.
 
