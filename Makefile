@@ -46,7 +46,7 @@ test: unit integration
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname totochtin
+ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname myxi_proxy
 
 .PHONY: boot noboot
 

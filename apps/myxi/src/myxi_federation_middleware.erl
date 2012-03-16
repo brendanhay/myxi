@@ -83,6 +83,13 @@ declaration(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstre
       arguments = args(Args, Type, Upstream)
      }.
 
+-spec args([tuple()], list() | binary(), atom()) -> [tuple()].
+%% @private
+args(Args, Type, Upstream) ->
+    Merge = [{<<"upstream-set">>, longstr, myxi:bin(Upstream)},
+             {<<"type">>, longstr, myxi:bin(Type)}],
+    myxi:merge_keylist(Args, Merge).
+
 -spec send(method(), #amqp_params_direct{}) -> error_m(ok, term()).
 %% @private
 send(Method, Params) ->
@@ -92,10 +99,3 @@ send(Method, Params) ->
            return(amqp_channel:call(Chan, Method)),
            return(amqp_channel:close(Chan)),
            amqp_connection:close(Conn)]).
-
--spec args([tuple()], list() | binary(), atom()) -> [tuple()].
-%% @private
-args(Args, Type, Upstream) ->
-    Merge = [{<<"upstream-set">>, longstr, myxi:bin(Upstream)},
-             {<<"type">>, longstr, myxi:bin(Type)}],
-    myxi:merge_keylist(Args, Merge).
