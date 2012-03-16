@@ -9,8 +9,7 @@
 %% @doc
 %%
 
--include_lib("rabbit_common/include/rabbit.hrl").
--include_lib("rabbit_common/include/rabbit_framing.hrl").
+-include_lib("amqp_client/include/amqp_client.hrl").
 
 %%
 %% Parse Transforms
@@ -61,27 +60,28 @@
 -type method()   :: rabbit_framing:amqp_method_record().
 
 -type action()   :: {apply, module(), atom(), list()} |
-                    {send | recv, method() | pos_integer() | binary()}.
+                    {fn, fun(() -> ok)}.
 
 %%
 %% Monads
 %%
 
 -type error_m(Result, Error) :: ok | {ok, Result} | {error, Error}.
+-type truth_m() :: true | false.
 
 %%
 %% Records
 %%
 
--record(endpoint, {node      :: node(),
-                   backend   :: atom(),
-                   address   :: address()}).
+-record(endpoint, {node         :: node(),
+                   backend      :: atom(),
+                   address      :: address()}).
 
--record(mware,   {method    :: method | undefined,
-                   endpoint  :: #endpoint{},
-                   protocol  :: protocol(),
-                   pre = []  :: [action()],
-                   post = [] :: [action()]}).
+-record(mware,    {method       :: method | undefined,
+                   endpoint     :: #endpoint{},
+                   protocol     :: protocol(),
+                   pre = []     :: [action()],
+                   post = []    :: [action()]}).
 
 %%
 %% GProc

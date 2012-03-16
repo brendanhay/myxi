@@ -41,7 +41,7 @@ init(Parent, Conn, Addr, Replay) ->
     ok = gen_tcp:controlling_process(Server, Conn),
     ok = proc_lib:init_ack(Parent, {ok, self(), Server}),
     ok = replay(Server, Replay),
-    lager:info("BACKEND-INIT ~p", [self()]),
+    lager:debug("BACKEND-INIT ~p", [self()]),
     read(#s{connection = Conn, server = Server}).
 
 %%

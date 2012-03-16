@@ -1,0 +1,2 @@
+rabbit: env RABBITMQ_NODENAME=rabbit RABBITMQ_NODE_PORT=5673 RABBITMQ_CONFIG_FILE=./rabbit RABBITMQ_ENABLED_PLUGINS_FILE=./enabled_plugins rabbitmq-server
+chinchilla: env RABBITMQ_NODENAME=chinchilla RABBITMQ_NODE_PORT=5674 RABBITMQ_CONFIG_FILE=./chinchilla RABBITMQ_ENABLED_PLUGINS_FILE=./chinchilla_enabled_plugins rabbitmq-server

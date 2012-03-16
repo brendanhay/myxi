@@ -146,6 +146,8 @@ health_check(?DOWN, State = #s{down = []}) ->
 health_check(?DOWN, State = #s{up = Up, down = Down}) ->
     {AddUp, NewDown} = check(Down),
     lager:info("BALANCE-DOWN ~p ~p", [self(), NewDown]),
+    %% Add endpoints for backends that have just come up
+    myxi_topology:add_endpoints(AddUp),
     State#s{up = Up ++ AddUp, down = NewDown}.
 
 -spec check([#exchange{}]) -> {[#exchange{}], [#exchange{}]}.

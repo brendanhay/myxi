@@ -28,7 +28,7 @@ call(MW = #mware{method = Method}) ->
         #'queue.declare'{arguments = Args} ->
             MW#mware{method = Method#'queue.declare'{arguments = args(Args)}};
         _Other ->
-            Mw
+            MW
     end.
 
 %%

@@ -46,28 +46,36 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
--spec add_endpoints([#endpoint{}]) -> ok.
+-spec add_endpoints([#endpoint{}]) -> empty | true | false.
 %% @doc
 add_endpoints(Endpoints) ->
-    Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
-    lager:info("TOPOLOGY-INS ~p", [Exchanges]),
-    ets:insert(?TABLE, Exchanges).
-
--spec find_exchange(binary()) -> {atom(), #'exchange.declare'{}} | not_found.
-%% @doc
-find_exchange(Name) ->
-    case ets:match(?TABLE, #ex{name = Name, backend = '$1',  declare = '$2'}) of
-        [[B, D]|_] -> {B, D};
-        []         -> not_found
+    case lists:flatten([list_exchanges(E) || E <- Endpoints]) of
+        [] ->
+            ok;
+        Exchanges ->
+            lager:info("TOPOLOGY-INS ~p", [Exchanges]),
+            ets:insert(?TABLE, Exchanges)
     end.
 
--spec verify_exchange(binary(), atom()) -> exists | not_found.
+-spec find_exchange(binary()) -> [{atom(), #'exchange.declare'{}}].
+%% @doc
+find_exchange(Name) ->
+    case ets:match(?TABLE, #ex{name = Name, backend = '$1', declare = '$2'}) of
+        []       -> [];
+        Matches  -> [{B, D} || [B, D] <- Matches]
+    end.
+
+-spec verify_exchange(binary(), atom()) -> true | false.
 %% @doc
 verify_exchange(Name, Backend) ->
     case run_exchange_verification(Name, Backend) of
-        ok                        -> exists;
-        {error, default_exchange} -> exists;
-        {error, _Reason}          -> not_found
+        ok ->
+            true;
+        {error, default_exchange} ->
+            true;
+        {error, Reason} ->
+            lager:error("TOPOLOGY-ERR ~p", [Reason]),
+            false
     end.
 
 %%
@@ -136,10 +144,13 @@ add_exchange(Exchange, Backend) ->
 %% @private
 list_exchanges(#endpoint{node = Node, backend = Backend}) ->
     case rpc:call(Node, rabbit_exchange, list, [<<"/">>]) of
-        {badrpc, Error} ->
-            exit({exchange_rpc_error, Error});
+        {badrpc, _Error} ->
+            lager:error("TOPOLOGY-ERR ~s unavailable", [Backend]),
+            [];
         Exchanges ->
-            [{name(E), Backend, declare(E)}
+            [#ex{name    = name(E),
+                 backend = Backend,
+                 declare = declare(E)}
              || E <- Exchanges, not default_exchange(E)]
     end.
 

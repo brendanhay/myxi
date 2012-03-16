@@ -104,7 +104,7 @@ proxying({reply, Raw}, State = #s{client = Client}) ->
     ok = send(Client, Raw),
     {next_state, proxying, State};
 proxying({forward, Raw, Channel, Method, Protocol}, State) ->
-    ok = call_mw(Raw, Channel, Method, Protocol, State),
+    ok = mware(Raw, Channel, Method, Protocol, State),
     {next_state, proxying, State}.
 
 closing(timeout, State) ->
@@ -207,58 +207,32 @@ send(Sock, Data) ->
 send(Sock, 0, Method, Protocol) ->
     rabbit_writer:internal_send_command(Sock, 0, Method, Protocol);
 send(Sock, Channel, Method, Protocol) ->
-    lager:notice("~p, ~p, ~p, ~p", [Sock, Channel, Method, Protocol]),
+    lager:notice("SEND ~p", [Method]),
     Frame =
         rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
     send(Sock, Frame).
 
--spec call_mw(iolist(), non_neg_integer(), ignore | passthrough | method(),
-              protocol(), #s{}) -> ok.
+-spec mware(iolist(), non_neg_integer(), ignore | passthrough | method(),
+            protocol(), #s{}) -> ok.
 %% @private
-call_mw(_Data, _Channel, ignore, _Protocol, _State) ->
+mware(_Data, _Channel, ignore, _Protocol, _State) ->
     ok;
-call_mw(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
+mware(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
-call_mw(Data, Channel, Method, Protocol, #s{server = Server, mware = MW}) ->
+mware(Data, Channel, Method, Protocol, #s{server = Server, mware = MW}) ->
     {Status, Pre, Post} = MW(Method),
-    [action(A, Server, Channel, Protocol) || A <- Pre],
+    [run(A) || A <- Pre],
     case Status of
         unmodified -> send(Server, Data);
         NewMethod  -> send(Server, Channel, NewMethod, Protocol)
     end,
-    [action(A, Server, Channel, Protocol) || A <- Post],
+    [run(A) || A <- Post],
     ok.
 
--spec action(action(), inet:socket(), non_neg_integer(), protocol()) -> ok.
+-spec run(action()) -> ok.
 %% @private
-action({apply, M, F, A}, _Server, _Channel, _Protocol) ->
-    apply(M, F, A);
-action({send, Data}, Server, _Channel, _Protocol) when is_binary(Data) ->
-    send(Server, Data);
-action({send, Method}, Server, Channel, Protocol) ->
-    send(Server, Channel, Method, Protocol);
-action({recv, Data}, Server, Channel, Protocol) when is_binary(Data) ->
-    action({recv, size(Data)}, Server, Channel, Protocol);
-action({recv, Size}, Server, _Channel, _Protocol) when is_integer(Size) ->
-    gen_tcp:recv(Server, Size);
-action({recv, Method}, Server, Channel, Protocol) ->
-    Frame = rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
-    action({recv, frame_size(Frame)}, Server, Channel, Protocol).
-
--spec frame_size(iolist()) -> non_neg_integer().
-%% @private
-frame_size(IoList) -> frame_size(IoList, 0).
-
--spec frame_size(iolist(), non_neg_integer()) -> non_neg_integer().
-%% @private
-frame_size([], Acc) ->
-    Acc;
-frame_size([H|T], Acc) when is_list(H) ->
-    frame_size(T, Acc + frame_size(H));
-frame_size([H|T], Acc) when is_binary(H) ->
-    frame_size(T, Acc + size(H));
-frame_size([_H|T], Acc) ->
-    frame_size(T, Acc + 1).
+run({apply, M, F, A}) -> apply(M, F, A);
+run({fn, Fun})        -> Fun().
 
 -spec close_client(#s{}) -> ok.
 %% @private

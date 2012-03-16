@@ -23,10 +23,11 @@
 
 -spec call(#mware{}) -> #mware{}.
 %% @doc
-call(MW = #mware{endpoint = Endpoint,
-                 method   = #'queue.bind'{exchange = Exchange},
-                 pre      =  Pre}) ->
-    MW#mware{pre = pre(Endpoint, Exchange) ++ Pre};
+call(MW = #mware{endpoint = Endpoint, method = #'queue.bind'{exchange = Exchange}, pre = Pre}) ->
+    case pre(Endpoint, Exchange) of
+        false -> MW;
+        Add   -> MW#mware{pre = Pre ++ Add}
+    end;
 call(MW) ->
     MW.
 
@@ -34,38 +35,28 @@ call(MW) ->
 %% Private
 %%
 
--spec pre(#endpoint{}, binary()) -> [action()].
+-spec pre(#endpoint{}, binary()) -> [action()] | false.
 %% @private
 pre(#endpoint{node = Node, backend = Backend}, Exchange) ->
-    case myxi_topology:find_exchange(Exchange) of
-        not_found           -> [];
-        {Backend, _Declare} -> [];
-        {Other, Declare}    ->
-            case upstream_exists(Node, Exchange, Other) of
-                true  -> federate(Declare, Other);
-                false -> []
-            end
-    end.
+    do([truth_m ||
+           Matches <- myxi_topology:find_exchange(Exchange),
+           case lists:keyfind(Backend, 1, Matches) of
+               false   -> return(continue);
+               _Exists -> false
+           end,
+           [{Other, Declare}] <- [{O, D} || {O, D} <- Matches, not federated(D)],
+           upstream_exists(Exchange, Other, Node),
+           create_link(Declare, Other, Backend, Node)]).
 
--spec federate(#'exchange.declare'{}, atom()) -> [action()].
+-spec federated(#'exchange.declare'{}) -> true | false.
 %% @private
-federate(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstream) ->
-    Send = Declare#'exchange.declare'{
-             type      = <<"x-federation">>,
-             arguments = args(Args, Type, Upstream)
-            },
-    [{send, Send}, {recv, #'exchange.declare_ok'{}}].
+federated(#'exchange.declare'{type = <<"x-federation">>}) -> true;
+federated(_Other)                                         -> false.
 
--spec args([tuple()], list() | binary(), atom()) -> [tuple()].
+-spec upstream_exists(binary(), atom(), node()) -> true | false.
 %% @private
-args(Args, Type, Upstream) ->
-    Merge = [{<<"upstream_set">>, longstr, myxi:bin(Upstream)},
-             {<<"type">>, longstr, myxi:bin(Type)}],
-    myxi:merge_keylist(Args, Merge).
-
--spec upstream_exists(node(), binary(), atom()) -> true | false.
-%% @private
-upstream_exists(Node, Exchange, Upstream) ->
+upstream_exists(Exchange, Upstream, Node) ->
+    lager:error("FED-TRY upstream_set: ~p", [Upstream]),
     %% from_set only looks at #resrouce.name/.vhost
     Name = #resource{name = Exchange, virtual_host = <<"/">>},
     Set = atom_to_binary(Upstream, latin1),
@@ -76,3 +67,35 @@ upstream_exists(Node, Exchange, Upstream) ->
             lager:error("FED-FAILURE upstream_set: ~p", [Error]),
             false
     end.
+
+-spec create_link(#'exchange.declare'{}, atom(), atom(), node()) -> [action()].
+%% @private
+create_link(Declare, Upstream, Downstream, Node) ->
+    Send = declaration(Declare, Upstream),
+    Params = #amqp_params_direct{username = myxi:bin(Downstream), node = Node},
+    [{fn, fun() -> send(Send, Params) end}].
+
+-spec declaration(#'exchange.declare'{}, atom()) -> #'exchange.declare'{}.
+%% @private
+declaration(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstream) ->
+    Declare#'exchange.declare'{
+      type = <<"x-federation">>,
+      arguments = args(Args, Type, Upstream)
+     }.
+
+-spec send(method(), #amqp_params_direct{}) -> error_m(ok, term()).
+%% @private
+send(Method, Params) ->
+    do([error_m ||
+           Conn <- amqp_connection:start(Params),
+           Chan <- amqp_connection:open_channel(Conn),
+           return(amqp_channel:call(Chan, Method)),
+           return(amqp_channel:close(Chan)),
+           amqp_connection:close(Conn)]).
+
+-spec args([tuple()], list() | binary(), atom()) -> [tuple()].
+%% @private
+args(Args, Type, Upstream) ->
+    Merge = [{<<"upstream-set">>, longstr, myxi:bin(Upstream)},
+             {<<"type">>, longstr, myxi:bin(Type)}],
+    myxi:merge_keylist(Args, Merge).
