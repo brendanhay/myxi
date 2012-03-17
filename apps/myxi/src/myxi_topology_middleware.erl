@@ -23,9 +23,10 @@
 
 -spec call(#mware{}) -> #mware{}.
 %% @doc
-call(MW = #mware{method = Method, endpoint = #endpoint{backend = Backend}, post = Post}) ->
+call(MW = #mware{method = Method, endpoint = Endpoint, post = Post}) ->
     case Method of
         #'exchange.declare'{exchange = Name} ->
+            Backend = Endpoint#endpoint.backend,
             Callback = {apply, myxi_topology, verify_exchange, [Name, Backend]},
             MW#mware{post = [Callback|Post]};
         _Other ->

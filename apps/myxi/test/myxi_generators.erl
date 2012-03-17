@@ -16,9 +16,16 @@
 %% Generators
 %%
 
-amqp_method(Except) -> ?SUCHTHAT(M, list(amqp_method()), M /= Except).
+amqp_methods() ->
+    ?LET(M, list(amqp_method_record()), M).
 
-amqp_method() ->
+amqp_methods_except(Many) when is_list(Many) ->
+    Set = gb_sets:from_list(Many),
+    ?SUCHTHAT(M, list(amqp_method_record()), not gb_sets:is_member(M, Set));
+amqp_methods_except(One) ->
+    amqp_methods_except([One]).
+
+amqp_method_record() ->
     union([#'connection.start'{},
            #'connection.start_ok'{},
            #'connection.secure'{},

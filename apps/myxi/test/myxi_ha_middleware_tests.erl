@@ -16,7 +16,7 @@
 %% Units
 %%
 
-adds_ha_queue_arguments_test() ->
+add_ha_queue_arguments_test() ->
     Before = #mware{method = #'queue.declare'{}},
     After = #mware{method = Method = #'queue.declare'{arguments = Args}} =
         myxi_ha_middleware:call(Before),
@@ -32,8 +32,8 @@ adds_ha_queue_arguments_test() ->
 %% Properties
 %%
 
-other_amqp_methods_test() ->
-    ?EQC(?FORALL(M, myxi_generators:amqp_method(#'queue.declare'{}),
+other_amqp_methods_unmodified_test() ->
+    ?EQC(?FORALL(M, myxi_generators:amqp_methods_except(#'queue.declare'{}),
                  begin
                      Expected = #mware{method = M},
                      Expected =:= myxi_ha_middleware:call(Expected)
