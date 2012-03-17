@@ -13,7 +13,7 @@
 -include("include/myxi_test.hrl").
 
 %%
-%% Generators
+%% AMQP
 %%
 
 amqp_methods() ->
