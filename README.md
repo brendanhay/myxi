@@ -76,6 +76,9 @@ instance and the `graphite` namespace prefix are configurable:
 
 **Frontends**
 
+A frontend consists of the configuration for an acceptor pool and listen socket,
+and a routing mechanism to determine which backend+balancer accepted connections will be directed to.
+
 ```erlang
 {frontends, [
     [{ip, "0.0.0.0"},
@@ -88,9 +91,23 @@ instance and the `graphite` namespace prefix are configurable:
 ]},
 ```
 
+Currently only `myxi_user_router` is supported, which uses the `LOGIN` component
+from the `AMQP` handshake to select a backend.
+
+
 <a name="backends" />
 
 **Backends**
+
+Backends in myxi consist of 3 main parts:
+
+`balancer`: is a running instance of the `myxi_balancer` behaviour which performs
+balancing based on the implementation configured in `{balancer, ...}`.
+
+`middleware`: is any number of implementations of the `myxi_middleware` behaviour.
+Middleware is wrapped (left->right), and can potentially perform
+ pre-hooks, post-callbacks, or modifications of the `AMQP` methods as they are forwarded
+from client->server.
 
 ```erlang
 {backends, [
