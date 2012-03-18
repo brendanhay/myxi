@@ -17,6 +17,7 @@
 
 %% API
 -export([start_link/0,
+         stop/0,
          add_endpoints/1,
          find_exchange/1,
          verify_exchange/2]).
@@ -45,6 +46,9 @@
 %% @doc
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+-spec stop() -> ok.
+stop() -> gen_server:cast(?MODULE, stop).
 
 -spec add_endpoints([#endpoint{}]) -> empty | true | false.
 %% @doc
@@ -94,9 +98,9 @@ init([]) ->
 handle_call(info, _From, State) ->
     {reply, ets:match(?TABLE, '$1'), State}.
 
--spec handle_cast(_, state()) -> {noreply, state()}.
+-spec handle_cast(stop, state()) -> {noreply, state()}.
 %% @hidden
-handle_cast(_Msg, State) -> {noreply, State}.
+handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_info(_, state()) -> {noreply, state()}.
 %% @hidden

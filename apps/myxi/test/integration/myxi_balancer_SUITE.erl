@@ -1,3 +1,13 @@
+%% This Source Code Form is subject to the terms of
+%% the Mozilla Public License, v. 2.0.
+%% A copy of the MPL can be found in the LICENSE file or
+%% you can obtain it at http://mozilla.org/MPL/2.0/.
+%%
+%% @author Brendan Hay
+%% @copyright (c) 2012 Brendan Hay <brendan@soundcloud.com>
+%% @doc
+%%
+
 -module(myxi_balancer_SUITE).
 
 -include("myxi_common_test.hrl").
@@ -32,7 +42,7 @@ init_per_testcase(_Case, Config) ->
 end_per_testcase(_Case, Config) ->
     meck:unload(?config(mocks, Config)),
     myxi_balancer:stop(?config(balancer, Config)),
-    clear([mocks, balancer], Config).
+    suite_helper:clear([mocks, balancer], Config).
 
 all() -> [add_endpoints,
           register_balancer,
@@ -58,8 +68,8 @@ all_endpoints_up(Config) ->
 
 all_endpoints_down(Config) ->
     meck:expect(net_adm, ping, 1, pang),
-    ?BALANCER ! ?UP,
-    context_switch(),
+    suite_helper:send(?BALANCER, ?UP),
+
     [?assertEqual({error, down}, myxi_balancer:next(?BALANCER)) ||
         _A <- ?config(endpoints, Config)].
 
@@ -72,8 +82,7 @@ single_endpoint_down(Config) ->
     meck:expect(net_adm, ping, fun(N) when N =:= Node -> pang; (_) -> pong end),
 
     %% Force a check
-    ?BALANCER ! ?UP,
-    context_switch(),
+    suite_helper:send(?BALANCER, ?UP),
 
     %% Assert the expected up nodes are returned
     [?assertEqual({ok, {A, []}}, myxi_balancer:next(?BALANCER)) || A <- Up],
@@ -82,19 +91,8 @@ single_endpoint_down(Config) ->
     meck:expect(net_adm, ping, 1, pong),
 
     %% Force a check of the down node
-    ?BALANCER ! ?DOWN,
-    context_switch(),
+    suite_helper:send(?BALANCER, ?DOWN),
 
     %% Assert everything is now returned
     Actual = [E || {ok, {E, []}} <- [myxi_balancer:next(?BALANCER) || _A <- All]],
     ?assertEqual(lists:usort(All), lists:usort(Actual)).
-
-%%
-%% Helpers
-%%
-
-clear([], Config)    -> Config;
-clear([H|T], Config) -> clear(T, lists:keydelete(H, 1, Config)).
-
-context_switch() -> erlang:bump_reductions(2000).
-
