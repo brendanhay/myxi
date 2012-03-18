@@ -157,7 +157,7 @@ As backend nodes come up (at boot, or after being unavailable), their resources 
 added to the map.
 
 **myxi_federation_middleware** ensures that calls to `queue.bind` for an exchange which
-exists on a different physical backend, without clustering will succeed.
+exists on a different physical backend will succeed.
 
 A federation exchange will be created on the current node with the upstream being
 the backend on which the exchange actually lives. This requires some convention
