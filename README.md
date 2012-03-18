@@ -29,8 +29,8 @@ Myxamatosis or myxi for short, is designed to be an AMQP aware load-balancer and
 Features
 ------------
 
-* Route traffic to clusters or individual nodes based on username
-* Transparently set all queues as HA
+* Route traffic to clusters or individual nodes based on AMQP username
+* Transparently set all queues as mirrored
 * Automatic federation of backends based on exchange locality
 * Statsd integration
 
