@@ -22,12 +22,12 @@ init_per_testcase(_Case, Config) ->
     %% Start the balancer with this module as the callback
     Endpoints = [#endpoint{node = A, backend = A, address = {A, 1}} ||
                     A <- [c, b, a]],
-    {ok, Balancer} = myxi_balancer:start_link(?BALANCER, myxi_roundrobin_balancer,
-                                              Endpoints, [], 5000),
+    {ok, Pid} = myxi_balancer:start_link(?BALANCER, myxi_roundrobin_balancer,
+                                         Endpoints, [], 5000),
 
     [{mocks, [net_adm, myxi_topology]},
      {endpoints, Endpoints},
-     {balancer, Balancer}|Config].
+     {balancer, Pid}|Config].
 
 end_per_testcase(_Case, Config) ->
     meck:unload(?config(mocks, Config)),
