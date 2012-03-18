@@ -101,15 +101,15 @@ from the AMQP handshake to select a backend.
 
 Backends in myxi consist of 3 main parts:
 
-`balancer` is a running instance of the `myxi_balancer` behaviour which performs
+**balancer** is a running instance of the `myxi_balancer` behaviour which performs
 balancing based on the implementation configured in `{balancer, ...}`.
 
-`middleware` is any number of implementations of the `myxi_middleware` behaviour.
+**middleware** is any number of implementations of the `myxi_middleware` behaviour.
 Middleware is wrapped (left->right), and can potentially perform
  pre-hooks, post-callbacks, or modifications of the AMQP methods as they are forwarded
 from client->server.
 
-`nodes` is a list of RabbitMQ node names and the port they are accepting AMQP connections on.
+**nodes** is a list of RabbitMQ node names and the port they are accepting AMQP connections on.
 Since RabbitMQ runs Distributed Erlang using `-sname`, the listed nodes must also
 confirm to short node names.
 
@@ -143,23 +143,23 @@ confirm to short node names.
 ]}
 ```
 
-Currently supported middleware:
+**Currently implemented middleware:**
 
-`myxi_topology_middleware` builds an in memory topology map (currently only exchanges),
+**myxi_topology_middleware** builds an in memory topology map (currently only exchanges),
 of AMQP resources and their backend locations.
 
-As backend nodes come up (at boot, or after being unavailable), their resources are collected via a `rpc:call`.
-As `exchange.delcare` methods are passed through the proxy their success is verified asynchronously and
+As backend nodes come up (at boot, or after being unavailable), their resources are mapped via `rpc:call`.
+`exchange.delcare` methods are passed through the proxy their success is verified asynchronously and
 added to the map.
 
-`myxi_federation_middleware` ensures that calls to `queue.bind` for an exchange which
+**myxi_federation_middleware** ensures that calls to `queue.bind` for an exchange which
 exists on a different physical backend, without clustering will succeed.
 
 A federation exchange will be created on the current node with the upstream being
-set to the backend on which the exchange actually lives. This requires some convention
-regarding `upstream_set` configuration, see: (https://github.com/brendanhay/myxi/tree/master/dev)
+the backend on which the exchange actually lives. This requires some convention
+regarding configuration, see: (https://github.com/brendanhay/myxi/tree/master/dev) for an example.
 
-`myxi_ha_middleware` this middleware ensures clients need no knowledge about the backend HA setup
+**myxi_ha_middleware** ensures clients need no knowledge about the backend HA setup
 by ensuring all `queue.declare` method calls have `x-ha-policy=all` appended to their arguments.
 
 The plan is to extend this to a percentage or some other sane/non-all value in the future.
