@@ -14,9 +14,9 @@
 
 init_per_testcase(_Case, Config) ->
     %% Mock net_adm:ping/1 for health_checks
-    meck:new(net_adm, [passthrough, unstick]),
+    meck:new(net_adm, [unstick]),
     %% Mock the topology
-    meck:new(myxi_topology, [passthrough]),
+    meck:new(myxi_topology),
     meck:expect(myxi_topology, add_endpoints, 1, ok),
     %% Start the balancer with this module as the callback
     {ok, Balancer} = myxi_balancer:start_link(?BALANCER, ?MODULE, [], [], 0),
@@ -35,7 +35,7 @@ all() -> [add_endpoints, register_balancer].
 
 add_endpoints(Config) ->
     Pid = ?config(balancer, Config),
-    ?assert(meck:called(myxi_topology, add_endpoints, [], Pid)).
+    ?assert(meck:called(myxi_topology, add_endpoints, [[]], Pid)).
 
 register_balancer(_Config) ->
     ?assert(is_pid(whereis(?BALANCER))).
