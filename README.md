@@ -71,8 +71,52 @@ Configure
 
 ```erlang
 {myxi, [
+    {tcp, [
+        {keepalive, true}
+    ]},
 
+    {statsd, [
+        {namespace, "toto"},
+        {url, 'STATSD_URL'}
+    ]},
 
+    {frontends, [
+        [{ip, "0.0.0.0"},
+         {port, 5672},
+         {max, 10},
+         {router, myxi_user_router, [
+             [{user, <<"rabbit">>}, {backend, rabbit}],
+             [{user, <<"chinchilla">>}, {backend, chinchilla}]
+         ]}]
+    ]},
+
+    {backends, [
+        {rabbit, [
+            {balancer, myxi_roundrobin_balancer},
+            {middleware, [
+                myxi_topology_middleware,
+                myxi_federation_middleware,
+                myxi_ha_middleware
+            ]},
+            {nodes, [
+                [{node, 'rabbit@13inches'},
+                 {port,  5673}]
+            ]}
+        ]},
+
+        {chinchilla, [
+            {balancer, myxi_roundrobin_balancer},
+            {middleware, [
+                myxi_topology_middleware,
+                myxi_federation_middleware,
+                myxi_ha_middleware
+            ]},
+            {nodes, [
+                [{node, 'chinchilla@13inches'},
+                 {port, 5674}]
+            ]}
+        ]}
+    ]}
 ]}
 ```
 
