@@ -34,9 +34,10 @@ all() -> [add_endpoints, register_balancer].
 %%
 
 add_endpoints(Config) ->
-    ?assert(meck:called(myxi_topology, add_endpoints, '_')).
+    Pid = ?config(balancer, Config),
+    ?assert(meck:called(myxi_topology, add_endpoints, [], Pid)).
 
-register_balancer(Config) ->
+register_balancer(_Config) ->
     ?assert(is_pid(whereis(?BALANCER))).
 
 %%
