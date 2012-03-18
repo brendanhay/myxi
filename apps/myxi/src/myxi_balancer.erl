@@ -69,7 +69,7 @@ start_link(Name, Mod, Endpoints, MW, Delay) ->
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
 -spec stop(pid()) -> ok.
-stop(Pid) -> gen_server:call(Pid, stop).
+stop(Pid) -> gen_server:cast(Pid, stop).
 
 -spec next(pid()) -> next().
 %% @doc
@@ -88,10 +88,8 @@ init({State, Delay}) ->
     init_timers(Delay),
     {ok, State}.
 
--spec handle_call(stop | next, reference(), #s{}) -> {reply, next(), #s{}}.
+-spec handle_call(next, reference(), #s{}) -> {reply, next(), #s{}}.
 %% @hidden
-handle_call(stop, _From, State) ->
-    {stop, normal, State};
 handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
     {Next, Shuffled} = Mod:next(Up),
     Selected =
@@ -101,9 +99,9 @@ handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
         end,
     {reply, Selected, State#s{up = Shuffled}}.
 
--spec handle_cast(_, #s{}) -> {noreply, #s{}}.
+-spec handle_cast(stop, #s{}) -> {noreply, #s{}}.
 %% @hidden
-handle_cast(_Msg, State) -> {noreply, State}.
+handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_info(check(), #s{}) -> {noreply, #s{}}.
 %% @hidden

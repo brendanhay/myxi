@@ -21,7 +21,7 @@ init_per_testcase(_Case, Config) ->
 
     %% Start the balancer with this module as the callback
     Endpoints = [#endpoint{node = A, backend = A, address = {A, 1}} ||
-                    A <- [c, b, a]],
+                    A <- [a, b, c]],
     {ok, Pid} = myxi_balancer:start_link(?BALANCER, myxi_roundrobin_balancer,
                                          Endpoints, [], 5000),
 
@@ -36,8 +36,9 @@ end_per_testcase(_Case, Config) ->
 
 all() -> [add_endpoints,
           register_balancer,
-          endpoints_up,
-          endpoints_down].
+          all_endpoints_up,
+          all_endpoints_down,
+          single_endpoint_down].
 
 %%
 %% Tests
@@ -51,16 +52,37 @@ add_endpoints(Config) ->
 register_balancer(_Config) ->
     ?assert(is_pid(whereis(?BALANCER))).
 
-endpoints_up(Config) ->
+all_endpoints_up(Config) ->
     [?assertEqual({ok, {A, []}}, myxi_balancer:next(?BALANCER)) ||
         A <- ?config(endpoints, Config)].
 
-endpoints_down(Config) ->
+all_endpoints_down(Config) ->
     meck:expect(net_adm, ping, 1, pang),
     ?BALANCER ! ?UP,
-    erlang:bump_reductions(2000),
+    context_switch(),
     [?assertEqual({error, down}, myxi_balancer:next(?BALANCER)) ||
         _A <- ?config(endpoints, Config)].
+
+single_endpoint_down(Config) ->
+    All = ?config(endpoints, Config),
+    Down = #endpoint{node = Node} = lists:nth(2, All),
+    Up = All -- [Down],
+
+    meck:expect(net_adm, ping, fun(N) when N =:= Node -> pang; (_) -> pong end),
+
+    ?BALANCER ! ?UP,
+    context_switch(),
+
+    [?assertEqual({ok, {A, []}}, myxi_balancer:next(?BALANCER)) || A <- Up],
+
+    meck:expect(net_adm, ping, 1, pong),
+
+    ?BALANCER ! ?DOWN,
+    context_switch(),
+
+    %% Check they're all up
+    Actual = [E || {ok, {E, []}} <- [myxi_balancer:next(?BALANCER) || _A <- All]],
+    ?assertEqual(lists:usort(All), lists:usort(Actual)).
 
 %%
 %% Helpers
@@ -68,4 +90,6 @@ endpoints_down(Config) ->
 
 clear([], Config)    -> Config;
 clear([H|T], Config) -> clear(T, lists:keydelete(H, 1, Config)).
+
+context_switch() -> erlang:bump_reductions(2000).
 
