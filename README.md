@@ -53,11 +53,17 @@ WIP
 Configure
 ------------
 
+TCP keepalive packets can be sent from myxi to the connected client and server sockets.
+See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
+
 ```erlang
 {tcp, [
     {keepalive, true}
 ]}
 ```
+
+myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
+instance and the `graphite` namespace prefix are configurable:
 
 ```erlang
 {statsd, [
