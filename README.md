@@ -11,7 +11,12 @@ Table of Contents
 * [Scenarios](#scenarios)
 * [Build](#build)
 * [Configure](#configure)
-* [Middleware](#middleware)
+    * [Statsd/Graphite](#statsd)
+    * [Frontends](#frontends)
+        * [Routers](#routers)
+    * [Backends](#backends)
+        * [Balancers](#balancers)
+        * [Middleware](#middleware)
 * [Contribute](#contribute)
 
 
@@ -53,51 +58,68 @@ Configure
 ------------
 
 ```erlang
-{myxi, [
-    {tcp, [
-        {keepalive, true}
-    ]},
+{tcp, [
+    {keepalive, true}
+]}
+```
 
-    {statsd, [
-        {namespace, "toto"},
-        {url, 'STATSD_URL'}
-    ]},
+<a name="statsd" />
 
-    {frontends, [
-        [{ip, "0.0.0.0"},
-         {port, 5672},
-         {max, 10},
-         {router, myxi_user_router, [
-             [{user, <<"rabbit">>}, {backend, rabbit}],
-             [{user, <<"chinchilla">>}, {backend, chinchilla}]
-         ]}]
-    ]},
+**Statsd**
 
-    {backends, [
-        {rabbit, [
-            {balancer, myxi_roundrobin_balancer},
-            {middleware, [
-                myxi_topology_middleware,
-                myxi_federation_middleware,
-                myxi_ha_middleware
-            ]},
-            {nodes, [
-                [{node, 'rabbit@13inches'},
-                 {port,  5673}]
-            ]}
+```erlang
+{statsd, [
+   {namespace, "graphite.namespace"},
+   {url, 'ENVIRONMENT_VARIABLE'}
+]}
+```
+
+<a name="frontends" />
+
+**Frontends**
+
+```erlang
+{frontends, [
+    [{ip, "0.0.0.0"},
+     {port, 5672},
+     {max, 10},
+     {router, myxi_user_router, [
+         [{user, <<"rabbit">>}, {backend, rabbit}],
+         [{user, <<"chinchilla">>}, {backend, chinchilla}]
+     ]}]
+]},
+```
+
+
+<a name="backends" />
+
+**Backends**
+
+```erlang
+{backends, [
+    {rabbit, [
+        {balancer, myxi_roundrobin_balancer},
+        {middleware, [
+            myxi_topology_middleware,
+            myxi_federation_middleware,
+            myxi_ha_middleware
         ]},
+        {nodes, [
+            [{node, 'rabbit@13inches'},
+             {port,  5673}]
+        ]}
+    ]},
 
-        {chinchilla, [
-            {balancer, myxi_roundrobin_balancer},
-            {middleware, [
-                myxi_topology_middleware,
-                myxi_federation_middleware,
-                myxi_ha_middleware
-            ]},
-            {nodes, [
-                [{node, 'chinchilla@13inches'},
-                 {port, 5674}]
-            ]}
+    {chinchilla, [
+        {balancer, myxi_roundrobin_balancer},
+        {middleware, [
+            myxi_topology_middleware,
+            myxi_federation_middleware,
+            myxi_ha_middleware
+        ]},
+        {nodes, [
+            [{node, 'chinchilla@13inches'},
+             {port, 5674}]
         ]}
     ]}
 ]}
