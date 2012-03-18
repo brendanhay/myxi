@@ -32,14 +32,14 @@ doc:
 # Tests
 #
 
-unit: build
+unit:
 	rm -rf apps/*/.eunit
 	$(REBAR) eunit skip_deps=true suite=$(T)
 
-integration: build
+integration:
 	$(REBAR) ct skip_deps=true suites=$(T)
 
-test: unit integration
+test: build unit integration
 
 #
 # Run

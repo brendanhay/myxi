@@ -19,6 +19,7 @@
 
 %% API
 -export([start_link/5,
+         stop/1,
          next/1]).
 
 %% Callbacks
@@ -67,6 +68,9 @@ start_link(Name, Mod, Endpoints, MW, Delay) ->
     State = #s{name = Name, mod = Mod, up = Endpoints, mware = MW},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
+-spec stop(pid()) -> ok.
+stop(Pid) -> gen_server:call(Pid, stop).
+
 -spec next(pid()) -> next().
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
@@ -84,8 +88,10 @@ init({State, Delay}) ->
     init_timers(Delay),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{}) -> {reply, next(), #s{}}.
+-spec handle_call(stop | next, reference(), #s{}) -> {reply, next(), #s{}}.
 %% @hidden
+handle_call(stop, _From, State) ->
+    {stop, normal, State};
 handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
     {Next, Shuffled} = Mod:next(Up),
     Selected =
