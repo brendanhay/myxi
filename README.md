@@ -45,7 +45,10 @@ WIP
 Build
 ------------
 
-WIP
+```shell
+make
+make boot
+```
 
 
 <a name="configure" />
@@ -62,7 +65,9 @@ See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
 ]}
 ```
 
-myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
+Any other tcp options supported by `gen_tcp` can be added here.
+
+Myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
 instance and the `graphite` namespace prefix are configurable:
 
 ```erlang
@@ -74,7 +79,7 @@ instance and the `graphite` namespace prefix are configurable:
 
 <a name="frontends" />
 
-**Frontends**
+#### Frontends
 
 A frontend consists of the configuration for an acceptor pool and listen socket,
 and a routing mechanism to determine which backend+balancer accepted connections will be directed to.
@@ -97,20 +102,19 @@ from the AMQP handshake to select a backend.
 
 <a name="backends" />
 
-**Backends**
+#### Backends
 
 Backends in myxi consist of 3 main parts:
 
 **balancer** is a running instance of the `myxi_balancer` behaviour which performs
 balancing based on the implementation configured in `{balancer, ...}`.
 
-**middleware** is any number of implementations of the `myxi_middleware` behaviour.
-Middleware is wrapped (left->right), and can potentially perform
- pre-hooks, post-callbacks, or modifications of the AMQP methods as they are forwarded
-from client->server.
+Currently only a very simple round-robin based algorithm is available.
 
-**nodes** is a list of RabbitMQ node names and the port they are accepting AMQP connections on.
-Since RabbitMQ runs Distributed Erlang using `-sname`, the listed nodes must also
+**middleware** is any number of implementations of the `myxi_middleware` behaviour.
+Middleware is wrapped (left->right), and can potentially perform pre-hooks, post-callbacks, or modifications of the AMQP methods as they are forwarded from client->server.
+
+**nodes** is a list of RabbitMQ node names and the port they are accepting AMQP connections on. Since RabbitMQ runs Distributed Erlang using `-sname`, the listed nodes must also
 confirm to short node names.
 
 ```erlang
@@ -143,7 +147,7 @@ confirm to short node names.
 ]}
 ```
 
-**Currently implemented middleware:**
+#### Available Middleware
 
 **myxi_topology_middleware** builds an in memory topology map (currently only exchanges),
 of AMQP resources and their backend locations.
