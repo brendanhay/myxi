@@ -10,7 +10,6 @@ Table of Contents
 * [Features](#features)
 * [Scenarios](#scenarios)
 * [Build](#build)
-* [Dependencies](#dependencies)
 * [Configure](#configure)
 * [Middleware](#middleware)
 * [Contribute](#contribute)
@@ -46,22 +45,6 @@ Build
 ------------
 
 WIP
-
-
-<a name="dependencies" />
-
-Dependencies
-------------
-
-* [R15B](erlang.org)
-* [RabbitMQ](rabbitmq.com)
-* [lager](github.com/basho/lager)
-* [amqp_client](github.com/rabbitmq/rabbitmq-erlang-client)
-* [erlando](github.com/rabbitmq/erlando)
-* [gproc](github.com/esl/gproc)
-* [cowboy](github.com/extend/cowboy)
-* [meck](github.com/eproxus/meck)
-* [proper](github.com/manopapad/proper)
 
 
 <a name="configure" />
