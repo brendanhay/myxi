@@ -66,8 +66,6 @@ endpoints_down(Config) ->
 %% Helpers
 %%
 
-balancer(Config) -> ?config(pid, Config).
-
 clear([], Config)    -> Config;
 clear([H|T], Config) -> clear(T, lists:keydelete(H, 1, Config)).
 
