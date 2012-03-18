@@ -21,8 +21,7 @@ Table of Contents
 Introduction
 ------------
 
-WIP
-
+Myxamatosis or myxi for short, is designed to be an AMQP aware load-balancer and proxy for RabbitMQ.
 
 <a name="features" />
 
