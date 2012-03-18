@@ -68,19 +68,24 @@ single_endpoint_down(Config) ->
     Down = #endpoint{node = Node} = lists:nth(2, All),
     Up = All -- [Down],
 
+    %% Mark one node as down
     meck:expect(net_adm, ping, fun(N) when N =:= Node -> pang; (_) -> pong end),
 
+    %% Force a check
     ?BALANCER ! ?UP,
     context_switch(),
 
+    %% Assert the expected up nodes are returned
     [?assertEqual({ok, {A, []}}, myxi_balancer:next(?BALANCER)) || A <- Up],
 
+    %% Mark all nodes as now up
     meck:expect(net_adm, ping, 1, pong),
 
+    %% Force a check of the down node
     ?BALANCER ! ?DOWN,
     context_switch(),
 
-    %% Check they're all up
+    %% Assert everything is now returned
     Actual = [E || {ok, {E, []}} <- [myxi_balancer:next(?BALANCER) || _A <- All]],
     ?assertEqual(lists:usort(All), lists:usort(Actual)).
 
