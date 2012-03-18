@@ -13,7 +13,39 @@
 -include("include/myxi_test.hrl").
 
 %%
-%% AMQP
+%% Atoms
+%%
+
+safe_atom() -> ?SUCHTHAT(A, atom(), A /= '').
+
+%%
+%% Lists
+%%
+
+ulist(G) -> ?LET(L, non_empty(list(G)), lists:usort(L)).
+
+word() ->
+    non_empty(list(oneof(lists:seq($a, $z)
+                         ++ lists:seq($A, $Z)
+                         ++ lists:seq($0, $9)
+                         ++ "_"))).
+
+%%
+%% Binaries
+%%
+
+safe_binary() ->
+    ?LET(B, non_empty(binary()), << <<C>> || <<C>> <= B, (C > 0) and (C =< 127) >>).
+
+amqp_table(Entries) when is_list(Entries) ->
+    ?LET(T,
+         ulist({non_empty(binary()), longstr, non_empty(binary())}),
+         lists:usort(T ++ Entries));
+amqp_table(Entry) ->
+    amqp_table([Entry]).
+
+%%
+%% Methods
 %%
 
 amqp_methods() ->
