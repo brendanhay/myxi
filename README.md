@@ -11,12 +11,8 @@ Table of Contents
 * [Scenarios](#scenarios)
 * [Build](#build)
 * [Configure](#configure)
-    * [Statsd/Graphite](#statsd)
     * [Frontends](#frontends)
-        * [Routers](#routers)
     * [Backends](#backends)
-        * [Balancers](#balancers)
-        * [Middleware](#middleware)
 * [Contribute](#contribute)
 
 
@@ -63,10 +59,6 @@ Configure
 ]}
 ```
 
-<a name="statsd" />
-
-**Statsd**
-
 ```erlang
 {statsd, [
    {namespace, "graphite.namespace"},
@@ -89,7 +81,6 @@ Configure
      ]}]
 ]},
 ```
-
 
 <a name="backends" />
 
