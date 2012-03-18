@@ -23,6 +23,7 @@ Introduction
 
 Myxamatosis or myxi for short, is designed to be an AMQP aware load-balancer and proxy for RabbitMQ.
 
+It is currently at a prototype stage.
 
 <a name="features" />
 
