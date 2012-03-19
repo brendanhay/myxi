@@ -22,6 +22,7 @@
          hostname/1,
          split_host/1,
          split_host/2,
+         os_env/1,
          os_env/2]).
 
 -define(APPLICATION, myxi).
@@ -100,17 +101,21 @@ split_host(Host, Default) ->
         [H|_]                    -> {H, Default}
     end.
 
+-spec os_env(atom()) -> string() | false.
+%% @private
+os_env(Key) when is_atom(Key) -> os:getenv(atom_to_list(Key)).
+
 -spec os_env(atom() | string(), string()) -> string().
 %% @doc
-os_env(Value, Default) ->
-    case Value of
-        V when is_atom(V) ->
-            case os:getenv(atom_to_list(V)) of
+os_env(Key, Default) ->
+    case Key of
+        K when is_atom(K) ->
+            case os_env(K) of
                 false -> Default;
-                Env -> Env
+                Env   -> Env
             end;
-        V when is_list(V) ->
-            V
+        K when is_list(K) ->
+            K
     end.
 
 %%
