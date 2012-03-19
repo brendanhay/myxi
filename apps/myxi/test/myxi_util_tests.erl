@@ -23,3 +23,16 @@
 bin_test() ->
     ?EQC(?FORALL(T, union([binary(), atom(), myxi_generators:word()]),
                  is_binary(myxi_util:bin(T)))).
+
+split_host_defaults_test() ->
+    ?EQC(?FORALL({H, D}, {myxi_generators:word(), atom()},
+                 begin
+                     {H, D} =:= myxi_util:split_host(H, D)
+                 end)).
+
+split_host_with_port_test() ->
+    ?EQC(?FORALL({H, P}, {myxi_generators:word(), pos_integer()},
+                 begin
+                     Host = H ++ ":" ++ integer_to_list(P),
+                     {H, P} =:= myxi_util:split_host(Host)
+                 end)).
