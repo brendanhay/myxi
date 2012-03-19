@@ -21,13 +21,7 @@
 
 setup() ->
     meck:new(Mods = [myxi_topology, rabbit_federation_upstream]),
-
-    %% %% Mock the ETS topology store to return alles ok
-    %% meck:expect(myxi_topology, find_exchange, 2, [{left_field, #'exchange.declare'{}}]),
-
-    %% Mock rabbit_federation_upstream:from_set/2 to return {ok, any()}
     meck:expect(rabbit_federation_upstream, from_set, 2, {ok, great_success}),
-
     Mods.
 
 teardown(Mods) ->

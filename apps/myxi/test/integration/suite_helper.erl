@@ -24,4 +24,3 @@ clear([], Config)    -> Config;
 clear([H|T], Config) -> clear(T, lists:keydelete(H, 1, Config)).
 
 context_switch() -> erlang:bump_reductions(2000).
-
