@@ -39,7 +39,7 @@ call(MW = #mware{method = Method}) ->
 %% @private
 args(Args) ->
     Merge = [{<<"x-ha-policy">>, longstr, <<"all">>}],
-    myxi_util:merge_keylist(Args, Merge).
+    lists:keymerge(1, Args, Merge).
 
 
 

@@ -88,7 +88,7 @@ declaration(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstre
 args(Args, Type, Upstream) ->
     Merge = [{<<"upstream-set">>, longstr, myxi_util:bin(Upstream)},
              {<<"type">>, longstr, myxi_util:bin(Type)}],
-    myxi_util:merge_keylist(Args, Merge).
+    lists:keymerge(1, Args, Merge).
 
 -spec send(method(), #amqp_params_direct{}) -> error_m(ok, term()).
 %% @private

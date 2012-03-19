@@ -8,24 +8,18 @@
 %% @doc
 %%
 
--module(myxi_roundrobin_balancer_tests).
+-module(myxi_util_tests).
 
 -include("include/myxi_test.hrl").
 
 %%
-%% Units
+%% Fixtures
 %%
-
-next_unavailable_test() ->
-    ?assertEqual({down, []}, myxi_roundrobin_balancer:next([])).
 
 %%
 %% Properties
 %%
 
-next_available_test() ->
-    ?EQC(?FORALL(L, non_empty(list()),
-                 begin
-                     [H|T] = L,
-                     {H, T ++ [H]} =:= myxi_roundrobin_balancer:next(L)
-                 end)).
+bin_test() ->
+    ?EQC(?FORALL(T, union([binary(), atom(), myxi_generators:word()]),
+                 is_binary(myxi_util:bin(T)))).

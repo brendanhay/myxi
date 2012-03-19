@@ -16,7 +16,6 @@
 -export([bin/1,
          config/1,
          option/2,
-         merge_keylist/2,
          format_ip/1,
          format_ip/2,
          peername/1,
@@ -53,13 +52,6 @@ option(ip, Opts) ->
     Ip;
 option(Key, Opts) ->
     lookup_option(Key, Opts).
-
--spec merge_keylist([proplists:property()], [proplists:property()])
-                   -> [proplists:property()].
-%% @doc
-merge_keylist(L1, L2) ->
-    Fold = fun(T, A) -> lists:keystore(element(1, T), 1, A, T) end,
-    lists:foldl(Fold, L1, L2).
 
 -spec format_ip([proplists:property()]) -> string().
 %% @doc

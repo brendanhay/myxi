@@ -30,6 +30,8 @@ word() ->
                          ++ lists:seq($0, $9)
                          ++ "_"))).
 
+properties() -> ?LET(L, list({atom(), any()}), L).
+
 %%
 %% Binaries
 %%
@@ -48,8 +50,7 @@ amqp_table(Entry) ->
 %% Methods
 %%
 
-amqp_methods() ->
-    ?LET(M, list(amqp_method_record()), M).
+amqp_methods() -> ?LET(M, list(amqp_method_record()), M).
 
 amqp_methods_except(Many) when is_list(Many) ->
     Set = gb_sets:from_list(Many),
