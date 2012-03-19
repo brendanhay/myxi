@@ -94,6 +94,7 @@ accumulate(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
 read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
     case gen_tcp:recv(Client, 0) of
         {ok, Data} ->
+            lager:info("RECV ~p", [Data]),
             accumulate(State#s{buf     = [Data|Buf],
                                buf_len = BufLen + size(Data),
                                recv    = false});
@@ -153,7 +154,7 @@ connection_start({Major, Minor, _Rev}, Protocol, State = #s{connection = Conn}) 
 %% @private
 properties(Protocol) ->
     [{<<"capabilities">>, table,   capabilities(Protocol)},
-     {<<"product">>,      longstr, <<"Centzon Totochtin">>},
+     {<<"product">>,      longstr, <<"Myxi">>},
      {<<"version">>,      longstr, <<"0.1.0">>},
      {<<"platform">>,     longstr, <<"Erlang/OTP">>},
      {<<"copyright">>,    longstr, <<"">>},
@@ -289,5 +290,9 @@ channel_unframe(Current, Previous) ->
 
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
-log(Mode, #s{client = Client}) ->
-    lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]).
+log(Mode, #s{client = Client}) when is_port(Client) ->
+    lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]);
+log(Mode, _) ->
+    lager:info("~s", [Mode]).
+
+

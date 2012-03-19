@@ -37,6 +37,7 @@ unit:
 	$(REBAR) eunit skip_deps=true suite=$(T)
 
 integration:
+	$(REBAR) skip_deps=true compile
 	$(REBAR) ct skip_deps=true suites=$(T)
 
 test: build unit integration
