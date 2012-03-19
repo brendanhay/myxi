@@ -26,13 +26,11 @@ bin_test() ->
 
 split_host_test_() ->
     [{"Host with no port number returns default",
-      ?_EQC(?FORALL({H, D},
-                    {myxi_generators:word(), atom()},
+      ?_EQC(?FORALL({H, D}, {myxi_generators:word(), atom()},
                     {H, D} =:= myxi_util:split_host(H, D)))},
 
      {"Host with port returns port number",
-      ?_EQC(?FORALL({H, P},
-                    {myxi_generators:word(), pos_integer()},
+      ?_EQC(?FORALL({H, P}, {myxi_generators:word(), pos_integer()},
                     begin
                         Host = H ++ ":" ++ integer_to_list(P),
                         {H, P} =:= myxi_util:split_host(Host)
@@ -47,20 +45,9 @@ os_env_test_() ->
      end,
      fun meck:unload/1,
      [{"String returns same string",
-       ?_EQC(?FORALL({K, D},
-                     {myxi_generators:word(), any()},
+       ?_EQC(?FORALL({K, D}, {myxi_generators:word(), any()},
                      K =:= myxi_util:os_env(K, D)))},
 
       {"Non-existing variable returns default",
-       ?_EQC(?FORALL({K, D},
-                     {myxi_generators:safe_atom(), any()},
-                     D =:= myxi_util:os_env(K, D)))}
-
-      %% {"Existing variable returns value",
-      %%  ?_EQC(?FORALL({K, D, V},
-      %%                {myxi_generators:safe_atom(), any(), myxi_generators:word()},
-      %%                begin
-      %%                    meck:expect(myxi_util, os_env, fun(A) -> throw({err, A}) end),
-      %%                    V =:= myxi_util:os_env(K, D)
-      %%                end))}
-     ]}.
+       ?_EQC(?FORALL({K, D}, {myxi_generators:safe_atom(), any()},
+                     D =:= myxi_util:os_env(K, D)))}]}.
