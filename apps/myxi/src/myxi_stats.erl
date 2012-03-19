@@ -65,7 +65,7 @@ counter(Stat, Step) -> cast({counter, Stat, Step}).
 init({Ns, Url}) ->
     lager:info("STATS-INIT"),
     process_flag(trap_exit, true),
-    {Host, Port} = myxi:split_host(Url, 8125),
+    {Host, Port} = myxi_util:split_host(Url, 8125),
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 

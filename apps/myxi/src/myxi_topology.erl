@@ -180,7 +180,7 @@ declare(#exchange{name        = #resource{name = Name},
                   internal    = Internal,
                   arguments   = Args}) ->
     #'exchange.declare'{exchange   = Name,
-                       type        = myxi:bin(Type),
+                       type        = myxi_util:bin(Type),
                        durable     = Durable,
                        auto_delete = Auto,
                        internal    = Internal,

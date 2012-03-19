@@ -80,7 +80,7 @@ connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
 connect({Ip, Port}, Retries) ->
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
-        ++ myxi:config(tcp),
+        ++ myxi_util:config(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

@@ -72,7 +72,7 @@ upstream_exists(Exchange, Upstream, Node) ->
 %% @private
 create_link(Declare, Upstream, Downstream, Node) ->
     Send = declaration(Declare, Upstream),
-    Params = #amqp_params_direct{username = myxi:bin(Downstream), node = Node},
+    Params = #amqp_params_direct{username = myxi_util:bin(Downstream), node = Node},
     [{fn, fun() -> send(Send, Params) end}].
 
 -spec declaration(#'exchange.declare'{}, atom()) -> #'exchange.declare'{}.
@@ -86,9 +86,9 @@ declaration(Declare = #'exchange.declare'{type = Type, arguments = Args}, Upstre
 -spec args([tuple()], list() | binary(), atom()) -> [tuple()].
 %% @private
 args(Args, Type, Upstream) ->
-    Merge = [{<<"upstream-set">>, longstr, myxi:bin(Upstream)},
-             {<<"type">>, longstr, myxi:bin(Type)}],
-    myxi:merge_keylist(Args, Merge).
+    Merge = [{<<"upstream-set">>, longstr, myxi_util:bin(Upstream)},
+             {<<"type">>, longstr, myxi_util:bin(Type)}],
+    myxi_util:merge_keylist(Args, Merge).
 
 -spec send(method(), #amqp_params_direct{}) -> error_m(ok, term()).
 %% @private

@@ -290,4 +290,4 @@ channel_unframe(Current, Previous) ->
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
 log(Mode, #s{client = Client}) ->
-    lager:info("~s ~s -> ~p", [Mode, myxi:peername(Client), self()]).
+    lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]).
