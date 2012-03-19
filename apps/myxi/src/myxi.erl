@@ -16,16 +16,7 @@
 
 %% API
 -export([start/0,
-         stop/0,
-         config/1,
-         option/2,
-         format_ip/1,
-         format_ip/2,
-         peername/1,
-         hostname/1,
-         split_host/1,
-         split_host/2,
-         os_env/2]).
+         stop/0]).
 
 %% Callbacks
 -export([start/2,
@@ -44,83 +35,6 @@ start() -> start(?MODULE).
 stop() ->
     ok = application:stop(?MODULE),
     init:stop().
-
--spec config(atom()) -> any().
-%% @doc
-config(Key) ->
-    application:load(?MODULE),
-    case application:get_env(?MODULE, Key) of
-        undefined   -> error({config_not_found, Key});
-        {ok, Value} -> Value
-    end.
-
--spec option(ip | atom(), options()) ->  inet:ip_address() | any().
-%% @doc
-option(ip, Opts) ->
-    {ok, Ip} = inet:getaddr(lookup_option(ip, Opts), inet),
-    Ip;
-option(Key, Opts) ->
-    lookup_option(Key, Opts).
-
--spec format_ip([proplists:property()]) -> string().
-%% @doc
-format_ip({Ip, Port}) ->
-    format_ip(Ip, Port);
-format_ip(Opts) ->
-    format_ip(option(ip, Opts), option(port, Opts)).
-
--spec format_ip(string() | node() | inet:ip_address(), inet:port_number())
-               -> string().
-%% @doc
-format_ip({A, B, C, D}, Port) ->
-    Io = io_lib:fwrite("~p.~p.~p.~p:~p", [A, B, C, D, Port]),
-    binary_to_list(iolist_to_binary(Io));
-format_ip(Host, Port) ->
-    Io = io_lib:fwrite("~s:~p", [Host, Port]),
-    binary_to_list(iolist_to_binary(Io)).
-
-
--spec peername(inet:socket()) -> string().
-%% @doc
-peername(Sock) ->
-    case inet:peername(Sock) of
-        {ok, {Ip, Port}} -> myxi:format_ip(Ip, Port);
-        _Error           -> "DISCONN"
-    end.
-
--spec hostname(node() | atom() | string()) -> inet:hostname().
-%% @doc
-hostname(Node) when is_atom(Node) ->
-    hostname(atom_to_list(Node));
-hostname(Node) ->
-    [Host|_] = lists:reverse(string:tokens(Node, "@")),
-    Host.
-
--spec split_host(string()) -> {nonempty_string(), undefined | inet:port_number()}.
-%% @doc
-split_host(Host) -> split_host(Host, undefined).
-
--spec split_host(string(), T::any()) -> {nonempty_string(), T::any() |
-                                        inet:port_number()}.
-%% @doc
-split_host(Host, Default) ->
-    case string:tokens(Host, ":") of
-        [H|P] when length(P) > 0 -> {H, list_to_integer(lists:flatten(P))};
-        [H|_]                    -> {H, Default}
-    end.
-
--spec os_env(atom() | string(), string()) -> string().
-%% @private
-os_env(Value, Default) ->
-    case Value of
-        V when is_atom(V) ->
-            case os:getenv(atom_to_list(V)) of
-                false -> Default;
-                Env -> Env
-            end;
-        V when is_list(V) ->
-            V
-    end.
 
 %%
 %% Callbacks
@@ -160,24 +74,19 @@ ensure_started(App, {error, Reason}) ->
 
 -spec start_listeners() -> [{ok, pid()}].
 %% @private
-start_listeners() -> [listener(Opts) || Opts <- config(frontends)].
+start_listeners() -> [listener(Opts) || Opts <- myxi_util:config(frontends)].
 
 -spec listener(frontend()) -> {ok, pid()}.
 %% @private
 listener(Config) ->
-    Tcp = [{ip, option(ip, Config)},
-           {port, option(port, Config)}|config(tcp)],
-    lager:info("LISTEN ~s", [format_ip(Tcp)]),
-    cowboy:start_listener(amqp_listener, option(max, Config),
+    Tcp = tcp_options(Config),
+    lager:info("LISTEN ~s", [myxi_util:format_ip(Tcp)]),
+    cowboy:start_listener(amqp_listener, myxi_util:option(max, Config),
                           cowboy_tcp_transport, Tcp,
                           myxi_connection, Config).
 
-%%
-%% Config
-%%
-
--spec lookup_option(atom(), options()) -> any().
+-spec tcp_options(frontend()) -> [proplists:property()].
 %% @private
-lookup_option(Key, Opts) ->
-    {Key, Value} = lists:keyfind(Key, 1, Opts),
-    Value.
+tcp_options(Config) ->
+    [{ip, myxi_util:option(ip, Config)},
+     {port, myxi_util:option(port, Config)}|myxi_util:config(tcp)].

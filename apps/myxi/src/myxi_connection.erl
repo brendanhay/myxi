@@ -38,7 +38,7 @@
 
 -record(s, {router   :: router(),
             topology :: ets:tid(),
-            policy   :: fun((method()) -> method() | false),
+            mware    :: myxi_middleware:composed(),
             listener :: pid(),
             backend  :: pid(),
             frontend :: pid(),
@@ -104,7 +104,7 @@ proxying({reply, Raw}, State = #s{client = Client}) ->
     ok = send(Client, Raw),
     {next_state, proxying, State};
 proxying({forward, Raw, Channel, Method, Protocol}, State) ->
-    ok = inject(Raw, Channel, Method, Protocol, State),
+    ok = mware(Raw, Channel, Method, Protocol, State),
     {next_state, proxying, State}.
 
 closing(timeout, State) ->
@@ -173,23 +173,23 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
     case myxi_router:route(Router, StartOk, Protocol) of
-        {Endpoint, Policies} ->
-            start_backend(Endpoint, Policies, Replay, Protocol, State);
-        down ->
+        {ok, {Endpoint, MW}} ->
+            start_backend(Endpoint, MW, Replay, Protocol, State);
+        {error, down} ->
             down
     end.
 
--spec start_backend(#endpoint{}, [policy()], iolist(), protocol(), #s{})
+-spec start_backend(#endpoint{}, [mware()], iolist(), protocol(), #s{})
                    -> #s{} | down.
 %% @private
 start_backend(Endpoint = #endpoint{address = Addr},
-              Policies, Replay, Protocol, State) ->
+              MW, Replay, Protocol, State) ->
     %% Start a backend, replaying the previous client data to the server
     case myxi_backend:start_link(self(), Addr, Replay) of
         {ok, Pid, Sock} ->
-            %% Create a fun composed of all available policies
-            Handler = myxi_policy:handler(Endpoint, Protocol, Policies),
-            State#s{backend = Pid, server = Sock, policy = Handler};
+            %% Create a fun composed of all available middleware
+            Composed = myxi_middleware:wrap(Endpoint, Protocol, MW),
+            State#s{backend = Pid, server = Sock, mware = Composed};
         _Error ->
             down
     end.
@@ -207,26 +207,32 @@ send(Sock, Data) ->
 send(Sock, 0, Method, Protocol) ->
     rabbit_writer:internal_send_command(Sock, 0, Method, Protocol);
 send(Sock, Channel, Method, Protocol) ->
-    lager:notice("~p, ~p, ~p, ~p", [Sock, Channel, Method, Protocol]),
+    lager:notice("SEND ~p", [Method]),
     Frame =
         rabbit_binary_generator:build_simple_method_frame(Channel, Method, Protocol),
     send(Sock, Frame).
 
--spec inject(iolist(), non_neg_integer(), ignore | passthrough | method(),
-                protocol(), #s{}) -> ok.
+-spec mware(iolist(), non_neg_integer(), ignore | passthrough | method(),
+            protocol(), #s{}) -> ok.
 %% @private
-inject(_Data, _Channel, ignore, _Protocol, _State) ->
+mware(_Data, _Channel, ignore, _Protocol, _State) ->
     ok;
-inject(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
+mware(Data, _Channel, passthrough, _Protocol, #s{server = Server}) ->
     send(Server, Data);
-inject(Data, Channel, Method, Protocol, #s{server = Server, policy = Policy}) ->
-    {Res, Callbacks} = Policy(Method),
-    case Res of
-        false     -> send(Server, Data);
-        NewMethod -> send(Server, Channel, NewMethod, Protocol)
+mware(Data, Channel, Method, Protocol, #s{server = Server, mware = MW}) ->
+    {Status, Pre, Post} = MW(Method),
+    [run(A) || A <- Pre],
+    case Status of
+        unmodified -> send(Server, Data);
+        NewMethod  -> send(Server, Channel, NewMethod, Protocol)
     end,
-    [F() || F <- Callbacks],
+    [run(A) || A <- Post],
     ok.
+
+-spec run(action()) -> ok.
+%% @private
+run({apply, M, F, A}) -> apply(M, F, A);
+run({fn, Fun})        -> Fun().
 
 -spec close_client(#s{}) -> ok.
 %% @private

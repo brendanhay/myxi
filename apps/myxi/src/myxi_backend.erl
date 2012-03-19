@@ -41,7 +41,7 @@ init(Parent, Conn, Addr, Replay) ->
     ok = gen_tcp:controlling_process(Server, Conn),
     ok = proc_lib:init_ack(Parent, {ok, self(), Server}),
     ok = replay(Server, Replay),
-    lager:info("BACKEND-INIT ~p", [self()]),
+    lager:debug("BACKEND-INIT ~p", [self()]),
     read(#s{connection = Conn, server = Server}).
 
 %%
@@ -80,7 +80,7 @@ connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
 connect({Ip, Port}, Retries) ->
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
-        ++ myxi:config(tcp),
+        ++ myxi_util:config(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

@@ -38,8 +38,7 @@ new(Frontend) ->
     {router, Mod, Routes} = lists:keyfind(router, 1, Frontend),
     Mod:new(Routes).
 
--spec route(router(), #'connection.start_ok'{}, protocol())
-           -> {#endpoint{}, [policy()]} | down.
+-spec route(router(), #'connection.start_ok'{}, protocol()) -> myxi_balancer:next().
 %% @doc
 route(Router, StartOk, Protocol) ->
     Balancer = Router:select_balancer(StartOk, Protocol),

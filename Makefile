@@ -32,21 +32,21 @@ doc:
 # Tests
 #
 
-unit: build
+unit:
 	rm -rf apps/*/.eunit
 	$(REBAR) eunit skip_deps=true suite=$(T)
 
-integration: build
+integration:
 	$(REBAR) ct skip_deps=true suites=$(T)
 
-test: unit integration
+test: build unit integration
 
 #
 # Run
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname totochtin
+ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname myxi_proxy -hidden -connect_all false
 
 .PHONY: boot noboot
 

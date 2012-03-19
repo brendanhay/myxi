@@ -41,8 +41,8 @@ init([]) ->
     %% Used to ensure balancer check starts are delayed
     random:seed(erlang:now()),
     Topology = topology_spec(),
-    Stats = stats_spec(myxi:config(statsd)),
-    Balancers = [balancer_spec(B) || B <- myxi:config(backends)],
+    Stats = stats_spec(myxi_util:config(statsd)),
+    Balancers = [balancer_spec(B) || B <- myxi_util:config(backends)],
     {ok, {{one_for_one, 3, 20}, [Topology, Stats|Balancers]}}.
 
 %%
@@ -58,8 +58,8 @@ topology_spec() ->
 %%
 
 stats_spec(Config) ->
-    Ns = myxi:option(namespace, Config),
-    Url = myxi:os_env(myxi:option(url, Config), "localhost:8126"),
+    Ns = myxi_util:option(namespace, Config),
+    Url = myxi_util:os_env(myxi_util:option(url, Config), "localhost:8126"),
     {stats, {myxi_stats, start_link, [Ns, Url]},
      permanent, 2000, worker, [myxi_stats]}.
 
@@ -68,21 +68,21 @@ stats_spec(Config) ->
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = myxi:option(balancer, Config),
+    Mod = myxi_util:option(balancer, Config),
     Args = [Name,
             Mod,
             endpoints(Name, Config),
-            myxi:option(policies, Config),
+            myxi_util:option(middleware, Config),
             random:uniform(?BALANCER_DELAY)],
     {Name, {myxi_balancer, start_link, Args},
      permanent, 2000, worker, [myxi_balancer]}.
 
 endpoints(Name, Config) ->
-    [endpoint(Name, N) || N <- myxi:option(nodes, Config)].
+    [endpoint(Name, N) || N <- myxi_util:option(nodes, Config)].
 
 endpoint(Name, Options) ->
-    Node = myxi:option(node, Options),
-    Addr = {myxi:hostname(Node), myxi:option(port, Options)},
+    Node = myxi_util:option(node, Options),
+    Addr = {myxi_util:hostname(Node), myxi_util:option(port, Options)},
     #endpoint{node    = Node,
               backend = Name,
               address = Addr}.

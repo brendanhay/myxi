@@ -12,6 +12,19 @@
 -include_lib("amqp_client/include/amqp_client.hrl").
 
 %%
+%% Parse Transforms
+%%
+
+%% Logging
+-compile({parse_transform, lager_transform}).
+
+%% Currying
+-compile({parse_transform, cut}).
+
+%% Monads
+-compile({parse_transform, do}).
+
+%%
 %% Types
 %%
 
@@ -20,7 +33,9 @@
 
 -type address()  :: {inet:hostname() | inet:ip_address(), inet:port_number()}.
 
--type policy()   :: myxi_ha_policy.
+-type mware()    :: myxi_ha_middleware |
+                    myxi_topology_middleware |
+                    myxi_federation_middleware.
 
 -type router()   :: myxi_user_router.
 
@@ -29,7 +44,7 @@
 -type frontend() :: [{ip, string()} |
                      {port, pos_integer()} |
                      {max, pos_integer()} |
-                     {policys, [policy()]} |
+                     {mwares, [mware()]} |
                      {route, router(), [any()]}].
 
 -type backend()  :: [{atom(),
@@ -44,18 +59,29 @@
 -type protocol() :: rabbit_framing:protocol().
 -type method()   :: rabbit_framing:amqp_method_record().
 
+-type action()   :: {apply, module(), atom(), list()} |
+                    {fn, fun(() -> ok)}.
+
+%%
+%% Monads
+%%
+
+-type error_m(Result, Error) :: ok | {ok, Result} | {error, Error}.
+-type truth_m() :: true | false.
+
 %%
 %% Records
 %%
 
--record(endpoint, {node           :: node(),
-                   backend        :: atom(),
-                   address        :: address()}).
+-record(endpoint, {node         :: node(),
+                   backend      :: atom(),
+                   address      :: address()}).
 
--record(policy,   {method         :: method | undefined,
-                   endpoint       :: #endpoint{},
-                   protocol       :: protocol(),
-                   callbacks = [] :: [fun(() -> ok)]}).
+-record(mware,    {method       :: method | undefined,
+                   endpoint     :: #endpoint{},
+                   protocol     :: protocol(),
+                   pre = []     :: [action()],
+                   post = []    :: [action()]}).
 
 %%
 %% GProc

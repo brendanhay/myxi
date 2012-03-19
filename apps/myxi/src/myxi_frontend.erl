@@ -69,7 +69,7 @@ start_link(Conn, Client) ->
 -spec init(pid(), pid(), inet:socket()) -> no_return().
 %% @hidden
 init(Parent, Conn, Client) ->
-    lager:info("FRONTEND-INIT ~p", [Client]),
+    lager:debug("FRONTEND-INIT ~p", [Client]),
     proc_lib:init_ack(Parent, {ok, self()}),
     State = #s{connection = Conn, client = Client},
     next_state(State, handshake).
@@ -290,4 +290,4 @@ channel_unframe(Current, Previous) ->
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
 log(Mode, #s{client = Client}) ->
-    lager:info("~s ~s -> ~p", [Mode, myxi:peername(Client), self()]).
+    lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]).

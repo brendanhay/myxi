@@ -29,35 +29,39 @@
         %% frontends
         {frontends, [
             [{ip, "0.0.0.0"},
-             {port, 5673},
+             {port, 5672},
              {max, 10},
              {router, myxi_user_router, [
-                 [{user, <<"guest">>}, {backend, activities}],
-                 [{user, <<"activities">>}, {backend, soundcloud}]
+                 [{user, <<"rabbit">>}, {backend, rabbit}],
+                 [{user, <<"chinchilla">>}, {backend, chinchilla}]
              ]}]
         ]},
 
         %% backends
         {backends, [
-            {soundcloud, [
+            {rabbit, [
                 {balancer, myxi_roundrobin_balancer},
-                {policies, [
-                    myxi_federation_policy
+                {middleware, [
+                    myxi_topology_middleware,
+                    myxi_federation_middleware,
+                    myxi_ha_middleware
                 ]},
                 {nodes, [
                     [{node, 'rabbit@13inches'},
-                     {port,  5672}]
+                     {port,  5673}]
                 ]}
             ]},
 
-            {activities, [
+            {chinchilla, [
                 {balancer, myxi_roundrobin_balancer},
-                {policies, [
-                    myxi_federation_policy
+                {middleware, [
+                    myxi_topology_middleware,
+                    myxi_federation_middleware,
+                    myxi_ha_middleware
                 ]},
                 {nodes, [
-                    [{node, 'rabbit@13inches'},
-                     {port, 5672}]
+                    [{node, 'chinchilla@13inches'},
+                     {port, 5674}]
                 ]}
             ]}
         ]}

@@ -9,9 +9,9 @@
 %% @doc
 %%
 
--compile(export_all).
-
 -include("myxi.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
+
+-compile(export_all).

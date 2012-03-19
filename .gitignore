@@ -10,6 +10,7 @@ deps
 bin
 ebin
 log
+logs
 doc
 src/typer_ann
 rel/package

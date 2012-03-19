@@ -19,6 +19,7 @@
 
 %% API
 -export([start_link/5,
+         stop/1,
          next/1]).
 
 %% Callbacks
@@ -30,12 +31,15 @@
          code_change/3]).
 
 -type check() :: check_up | check_down.
+-type next()  :: {ok, {#endpoint{}, [mware()]}} | down.
+
+-export_types([next/0]).
 
 -record(s, {mod       :: module(),
             name      :: atom(),
             up        :: [#endpoint{}],
             down = [] :: [#endpoint{}],
-            policies  :: [policy()]}).
+            mware     :: [mware()]}).
 
 -define(UP,         check_up).
 -define(UP_INTER,   5000).
@@ -56,15 +60,18 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec start_link(pid(), module(), [#endpoint{}], [policy()], pos_integer())
+-spec start_link(pid(), module(), [#endpoint{}], [mware()], pos_integer())
                 -> {ok, pid()} | {error, _} | ignore.
 %% @doc
-start_link(Name, Mod, Endpoints, Policies, Delay) ->
+start_link(Name, Mod, Endpoints, MW, Delay) ->
     lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Endpoints]),
-    State = #s{name = Name, mod = Mod, up = Endpoints, policies = Policies},
+    State = #s{name = Name, mod = Mod, up = Endpoints, mware = MW},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
--spec next(pid()) -> {#endpoint{}, [policy()]} | down.
+-spec stop(pid()) -> ok.
+stop(Pid) -> gen_server:cast(Pid, stop).
+
+-spec next(pid()) -> next().
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 
@@ -81,22 +88,20 @@ init({State, Delay}) ->
     init_timers(Delay),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{})
-                 -> {reply, {#endpoint{}, [policy()]} | down, #s{}}.
+-spec handle_call(next, reference(), #s{}) -> {reply, next(), #s{}}.
 %% @hidden
-handle_call(next, _From, State = #s{mod = Mod, up = Up, policies = Policies}) ->
+handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
     {Next, Shuffled} = Mod:next(Up),
     Selected =
         case Next of
-            Endpoint = #endpoint{} -> {Endpoint, Policies};
-            down                   -> down
+            Endpoint = #endpoint{} -> {ok, {Endpoint, MW}};
+            down                   -> {error, down}
         end,
     {reply, Selected, State#s{up = Shuffled}}.
 
-
--spec handle_cast(_, #s{}) -> {noreply, #s{}}.
+-spec handle_cast(stop, #s{}) -> {noreply, #s{}}.
 %% @hidden
-handle_cast(_Msg, State) -> {noreply, State}.
+handle_cast(stop, State) -> {stop, normal, State}.
 
 -spec handle_info(check(), #s{}) -> {noreply, #s{}}.
 %% @hidden
@@ -145,6 +150,8 @@ health_check(?DOWN, State = #s{down = []}) ->
 health_check(?DOWN, State = #s{up = Up, down = Down}) ->
     {AddUp, NewDown} = check(Down),
     lager:info("BALANCE-DOWN ~p ~p", [self(), NewDown]),
+    %% Add endpoints for backends that have just come up
+    myxi_topology:add_endpoints(AddUp),
     State#s{up = Up ++ AddUp, down = NewDown}.
 
 -spec check([#exchange{}]) -> {[#exchange{}], [#exchange{}]}.

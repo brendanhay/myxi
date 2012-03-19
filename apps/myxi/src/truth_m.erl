@@ -1,6 +1,5 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
-%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
 %%
@@ -9,11 +8,23 @@
 %% @doc
 %%
 
--include("include/myxi.hrl").
+-module(truth_m).
 
--include_lib("proper/include/proper.hrl").
--include_lib("eunit/include/eunit.hrl").
+-behaviour(monad).
 
--define(EQC(P), ?assert(proper:quickcheck(P))).
+%% Callbacks
+-export(['>>='/2, return/1, fail/1]).
 
--compile(export_all).
+%%
+%% Callbacks
+%%
+
+'>>='([], _Fun)    -> false;
+'>>='(false, _Fun) -> false;
+'>>='(X, Fun)      -> Fun(X).
+
+return([])    -> true;
+return(false) -> true;
+return(X)     -> X.
+
+fail(_X) -> false.
