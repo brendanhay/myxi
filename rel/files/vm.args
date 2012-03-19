@@ -1,12 +1,5 @@
 ## Name of the node
--name poxy@127.0.0.1
-
-## Cookie for distributed erlang
--setcookie poxy
-
-## Heartbeat management; auto-restarts VM if it dies or becomes unresponsive
-## (Disabled by default..use with caution!)
-##-heart
+-sname myxi
 
 ## Enable kernel poll and a few async threads
 +K true
@@ -17,3 +10,8 @@
 
 ## Tweak GC to run more often
 -env ERL_FULLSWEEP_AFTER 10
+
+## Ensure hidden node and transitive connections
+## don't fuck with backend rabbits!
+-hidden
+-connect_all false
