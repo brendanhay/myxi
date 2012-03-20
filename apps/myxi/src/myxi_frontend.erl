@@ -94,7 +94,6 @@ accumulate(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
 read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
     case gen_tcp:recv(Client, 0) of
         {ok, Data} ->
-            lager:info("RECV ~p", [Data]),
             accumulate(State#s{buf     = [Data|Buf],
                                buf_len = BufLen + size(Data),
                                recv    = false});
@@ -294,5 +293,3 @@ log(Mode, #s{client = Client}) when is_port(Client) ->
     lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]);
 log(Mode, _) ->
     lager:info("~s", [Mode]).
-
-
