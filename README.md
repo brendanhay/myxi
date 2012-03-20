@@ -14,6 +14,7 @@ Table of Contents
     * [Frontends](#frontends)
     * [Backends](#backends)
 * [Contribute](#contribute)
+* [Licence](#licence)
 
 
 <a name="introduction" />
@@ -28,7 +29,7 @@ It is currently at a prototype stage.
 <a name="features" />
 
 Features
-------------
+--------
 
 * Route traffic to clusters or individual nodes based on AMQP username
 * Transparently set all queues as mirrored
@@ -39,7 +40,7 @@ Features
 <a name="scenarios" />
 
 Scenarios
-------------
+---------
 
 WIP
 
@@ -47,7 +48,7 @@ WIP
 <a name="build" />
 
 Build
-------------
+-----
 
 ```shell
 make
@@ -58,7 +59,7 @@ make boot
 <a name="configure" />
 
 Configure
-------------
+---------
 
 TCP keepalive packets can be sent from myxi to the connected client and server sockets.
 See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
@@ -176,10 +177,14 @@ The plan is to extend this to a percentage or some other sane/non-all value in t
 <a name="contribute" />
 
 Contribute
-------------
+----------
 
 For any problems, comments or feedback please create an issue [here on GitHub](github.com/brendanhay/myxi/issues).
 
 
+<a name="licence" />
 
+Licence
+-------
 
+Myxi is released under the [Mozilla Public License Version 2.0](http://www.mozilla.org/MPL/)
