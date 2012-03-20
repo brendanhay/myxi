@@ -10,6 +10,7 @@ Table of Contents
 * [Features](#features)
 * [Scenarios](#scenarios)
 * [Build](#build)
+* [Testing](#testing)
 * [Configure](#configure)
     * [Frontends](#frontends)
     * [Backends](#backends)
@@ -53,6 +54,27 @@ Build
 ```shell
 make
 make boot
+```
+
+
+<a name="testing" />
+
+Testing
+-------
+
+Myxi has a growing number of Unit, Integration, and Property Based Tests. There are a number of Makefile targets which are used to run the respective suites.
+
+```shell
+make test        # All
+make unit        # Unit + Property tests only
+make integration # Integration suites
+```
+
+Both `unit` and `integration` targets support an `ENV` variable `T` specifying a specific suite to run. For example:
+
+```shell
+make unit T=myxi_util            # The eunit module, minus the '_test.erl' suffix
+make integration T=myxi_frontend # A common_test suite, minus the '_SUITE.erl' suffix
 ```
 
 
