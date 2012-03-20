@@ -1,0 +1,9 @@
+:connections:
+    - :user: rabbit
+      :pass: rabbit
+      :host: localhost
+      :port: 5672
+    - :user: chinchilla
+      :pass: chinchilla
+      :host: localhost
+      :port: 5672
