@@ -143,7 +143,7 @@ send(#s{sock = Sock, host = Host, port = Port, ns = Ns}, Format, Args) ->
     %% iolist_to_bin even though gen_...:send variants accept deep iolists,
     %% since it makes logging and testing easier
     Msg = iolist_to_binary(io_lib:format("~s." ++ Format, [Ns|Args])),
-    lager:info("stats: ~p", [Msg]),
+    lager:debug("STAT ~p", [Msg]),
     case gen_udp:send(Sock, Host, Port, Msg) of
         _Any -> ok
     end.
