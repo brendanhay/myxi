@@ -34,7 +34,7 @@ start_link(Conn, Addr, Replay) ->
 %% Callbacks
 %%
 
--spec init(pid(), pid(), inet:socket(), iolist()) -> no_return().
+-spec init(pid(), pid(), address(), [binary()]) -> no_return().
 %% @hidden
 init(Parent, Conn, Addr, Replay) ->
     Server = connect(Addr, 3),
