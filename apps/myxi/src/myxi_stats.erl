@@ -85,7 +85,7 @@ handle_cast({counter, Stat, Step}, State) ->
     stat(State, counter, Stat, Step),
     {noreply, State}.
 
--spec handle_info(_, #s{}) -> {noreply, #s{}}.
+-spec handle_info({'DOWN', _, process, _, _}, #s{}) -> {noreply, #s{}}.
 %% @hidden myxi_connection terminates
 handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
     Started = gproc:get_value(?PROP(Conn)),
