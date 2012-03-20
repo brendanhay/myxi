@@ -30,11 +30,11 @@
          terminate/2,
          code_change/3]).
 
--type state() :: pos_integer().
+-type state() :: atom() | ets:tid().
 
--record(ex, {name    :: binary(),
+-record(ex, {name    :: binary() | '$1',
              backend :: atom(),
-             declare :: #'exchange.declare'{}}).
+             declare :: #'exchange.declare'{} | '$2'}).
 
 -define(TABLE, ?MODULE).
 
@@ -50,7 +50,7 @@ start_link() ->
 -spec stop() -> ok.
 stop() -> gen_server:cast(?MODULE, stop).
 
--spec add_endpoints([#endpoint{}]) -> empty | true | false.
+-spec add_endpoints([#endpoint{}]) -> ok.
 %% @doc
 add_endpoints(Endpoints) ->
     case lists:flatten([list_exchanges(E) || E <- Endpoints]) of
@@ -64,10 +64,8 @@ add_endpoints(Endpoints) ->
 -spec find_exchange(binary()) -> [{atom(), #'exchange.declare'{}}].
 %% @doc
 find_exchange(Name) ->
-    case ets:match(?TABLE, #ex{name = Name, backend = '$1', declare = '$2'}) of
-        []       -> [];
-        Matches  -> [{B, D} || [B, D] <- Matches]
-    end.
+    Matches = ets:match(?TABLE, #ex{name = Name, backend = '$1', declare = '$2'}),
+    [{B, D} || [B, D] <- Matches].
 
 -spec verify_exchange(binary(), atom()) -> true | false.
 %% @doc
@@ -93,12 +91,12 @@ init([]) ->
     process_flag(trap_exit, true),
     {ok, ets:new(?TABLE, [bag, public, named_table, {keypos, #ex.name}])}.
 
--spec handle_call(info, _, state()) -> {reply, ok, state()}.
+-spec handle_call(info, _, state()) -> {reply, [any()], state()}.
 %% @hidden
 handle_call(info, _From, State) ->
     {reply, ets:match(?TABLE, '$1'), State}.
 
--spec handle_cast(stop, state()) -> {noreply, state()}.
+-spec handle_cast(stop, state()) -> {stop, normal, state()}.
 %% @hidden
 handle_cast(stop, State) -> {stop, normal, State}.
 

@@ -50,7 +50,7 @@
             replay = []           :: iolist() | connected,
             buf = []              :: buffer(),
             buf_len = 0           :: non_neg_integer(),
-            recv = false          :: true | false,
+            recv = false          :: boolean(),
             recv_len = ?HANDSHAKE :: non_neg_integer()}).
 
 %%
@@ -89,7 +89,7 @@ accumulate(State = #s{recv_len = RecvLen, buf = Buf, buf_len = BufLen}) ->
     NewState = update_replay(Data, State),
     parse(Data, NewState#s{buf = [Rest], buf_len = BufLen - RecvLen}).
 
--spec read(#s{}) -> ok | no_return().
+-spec read(#s{}) -> no_return().
 %% @private
 read(State = #s{client = Client, buf = Buf, buf_len = BufLen}) ->
     case gen_tcp:recv(Client, 0) of
@@ -159,7 +159,7 @@ properties(Protocol) ->
      {<<"copyright">>,    longstr, <<"">>},
      {<<"information">>,  longstr, <<"">>}].
 
--spec capabilities(rabbit_framing:protocol()) -> [{binary(), bool, true}].
+-spec capabilities(rabbit_framing:protocol()) -> [{<<_:80,_:_*32>>, bool, true}].
 %% @private
 capabilities(rabbit_framing_amqp_0_9_1) ->
     [{<<"publisher_confirms">>,         bool, true},
@@ -169,7 +169,7 @@ capabilities(rabbit_framing_amqp_0_9_1) ->
 capabilities(_) ->
     [].
 
--spec connection_start_ok(binary(), #s{}) -> #s{}.
+-spec connection_start_ok(#'connection.start_ok'{}, #s{}) -> #s{}.
 %% @private
 connection_start_ok(StartOk, State = #s{connection = Conn,
                                         replay     = Replay,
@@ -182,7 +182,7 @@ connection_start_ok(StartOk, State = #s{connection = Conn,
 %% Parsing
 %%
 
--spec parse(binary(), #s{}) -> no_return().
+-spec parse(<<_:8,_:_*8>>, #s{}) -> no_return().
 %% @private
 parse(Data, State = #s{step = handshake}) ->
     {Version, Protocol} =
@@ -227,9 +227,7 @@ parse(Data, State = #s{step         = payload,
                     {method, Method, _Content, NewFrameState} ->
                         {Method, State#s{framing = NewFrameState}};
                     {state, NewFrameState} ->
-                        {passthrough, State#s{framing = NewFrameState}};
-                    Error ->
-                        disconnect(Error, State)
+                        {passthrough, State#s{framing = NewFrameState}}
                 end;
             _Unknown ->
                 disconnect({bad_payload, Type, Channel, Size, Data}, State)

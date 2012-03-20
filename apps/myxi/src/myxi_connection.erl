@@ -62,7 +62,7 @@ start_link(Listener, Client, cowboy_tcp_transport, Config) ->
 reply(Conn, Raw) ->
     gen_fsm:send_event(Conn, {reply, Raw}).
 
--spec reply(pid(), pos_integer(), method(), protocol()) -> ok.
+-spec reply(pid(), non_neg_integer(), method(), protocol()) -> ok.
 %% @doc
 reply(Conn, Channel, Method, Protocol) ->
     gen_fsm:send_event(Conn, {reply, Channel, Method, Protocol}).
