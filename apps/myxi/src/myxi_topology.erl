@@ -116,13 +116,6 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
--spec add_exchange(#exchange{}, atom()) -> ok.
-%% @private
-add_exchange(Exchange, Backend) ->
-    Record = #ex{name = name(Exchange), backend = Backend, declare = declare(Exchange)},
-    ets:insert(?TABLE, Record),
-    ok.
-
 -spec run_exchange_verification(binary(), atom()) -> error_m(ok, term()).
 %% @private
 run_exchange_verification(Name, Backend) ->
@@ -141,6 +134,13 @@ locate_exchange(Name, #endpoint{node = Node}) ->
     Resource = rabbit_misc:r(<<"/">>, exchange, Name),
     Args = [{rabbit_exchange, Resource}],
     rpc:call(Node, rabbit_misc, dirty_read, Args).
+
+-spec add_exchange(#exchange{}, atom()) -> ok.
+%% @private
+add_exchange(Exchange, Backend) ->
+    Record = ets:insert(?TABLE, #ex{name = name(Exchange), backend = Backend, declare = declare(Exchange)}),
+    ets:insert(?TABLE, Record),
+    ok.
 
 -spec list_exchanges(#endpoint{}) -> [{binary(), node(), #exchange{}}].
 %% @private
