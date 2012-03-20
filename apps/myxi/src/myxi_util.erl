@@ -40,7 +40,10 @@ bin(Bin)  when is_binary(Bin) -> Bin.
 -spec config(atom()) -> any().
 %% @doc
 config(Key) ->
-    application:load(?APPLICATION),
+    case application:load(?APPLICATION) of
+        ok             -> ok;
+        {error, Error} -> lager:error("config load ~p", [Error])
+    end,
     case application:get_env(?APPLICATION, Key) of
         undefined   -> error({config_not_found, Key});
         {ok, Value} -> Value
@@ -54,7 +57,7 @@ option(ip, Opts) ->
 option(Key, Opts) ->
     lookup_option(Key, Opts).
 
--spec format_ip([proplists:property()]) -> string().
+-spec format_ip([proplists:property()]) -> [byte()].
 %% @doc
 format_ip({Ip, Port}) ->
     format_ip(Ip, Port);
@@ -72,7 +75,7 @@ format_ip(Host, Port) ->
     binary_to_list(iolist_to_binary(Io)).
 
 
--spec peername(inet:socket()) -> string().
+-spec peername(inet:socket()) -> [byte()].
 %% @doc
 peername(Sock) ->
     case inet:peername(Sock) of
