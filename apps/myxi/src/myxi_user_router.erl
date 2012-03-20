@@ -17,8 +17,6 @@
 %% Callbacks
 -export([select_balancer/2]).
 
--compile(export_all).
-
 %%
 %% Callbacks
 %%
@@ -36,7 +34,7 @@ select_balancer(#'connection.start_ok'{response = Response}, Protocol) ->
 %% Private
 %%
 
--spec user(binary(), protocol()) -> user().
+-spec user(binary(), protocol()) -> binary().
 %% @private
 user(Response, rabbit_framing_amqp_0_9_1) ->
     case extract(Response) of

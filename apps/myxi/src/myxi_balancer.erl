@@ -51,7 +51,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{next, 1}] | undefined.
+-spec behaviour_info(_) -> [{next, 1}, ...] | undefined.
 %% @hidden
 behaviour_info(callbacks) -> [{next, 1}];
 behaviour_info(_Other)    -> undefined.
@@ -88,7 +88,7 @@ init({State, Delay}) ->
     init_timers(Delay),
     {ok, State}.
 
--spec handle_call(next, reference(), #s{}) -> {reply, next(), #s{}}.
+-spec handle_call(next, {pid(), _}, #s{}) -> {reply, next(), #s{}}.
 %% @hidden
 handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
     {Next, Shuffled} = Mod:next(Up),
@@ -99,7 +99,7 @@ handle_call(next, _From, State = #s{mod = Mod, up = Up, mware = MW}) ->
         end,
     {reply, Selected, State#s{up = Shuffled}}.
 
--spec handle_cast(stop, #s{}) -> {noreply, #s{}}.
+-spec handle_cast(stop, #s{}) -> {stop, normal, #s{}}.
 %% @hidden
 handle_cast(stop, State) -> {stop, normal, State}.
 
@@ -154,12 +154,12 @@ health_check(?DOWN, State = #s{up = Up, down = Down}) ->
     myxi_topology:add_endpoints(AddUp),
     State#s{up = Up ++ AddUp, down = NewDown}.
 
--spec check([#exchange{}]) -> {[#exchange{}], [#exchange{}]}.
+-spec check([#endpoint{}]) -> {[#endpoint{}], [#endpoint{}]}.
 %% @private
 check(Endpoints) -> check(Endpoints, [], []).
 
--spec check([#exchange{}], [#exchange{}], [#exchange{}])
-           -> {[#exchange{}], [#exchange{}]}.
+-spec check([#endpoint{}], [#endpoint{}], [#endpoint{}])
+           -> {[#endpoint{}], [#endpoint{}]}.
 %% @private
 check([], Up, Down) ->
     {lists:reverse(Up), lists:reverse(Down)};

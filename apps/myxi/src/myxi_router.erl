@@ -23,7 +23,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{select_balancer, 2}] | undefined.
+-spec behaviour_info(_) -> [{select_balancer, 2}, ...] | undefined.
 %% @hidden
 behaviour_info(callbacks) -> [{select_balancer, 2}];
 behaviour_info(_Other)    -> undefined.
