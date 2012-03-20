@@ -21,7 +21,7 @@
 %%
 
 init_per_testcase(_Case, Config) ->
-    meck:new(gen_tcp, [unstick, passthrough, no_link]),
+    meck:new(gen_tcp, [unstick, passthrough]),
     [{mocks, [gen_tcp]}, {frontend, none}|Config].
 
 end_per_testcase(_Case, Config) ->
