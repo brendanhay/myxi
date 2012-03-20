@@ -20,12 +20,12 @@
 %% Callbacks
 %%
 
-init_per_testcase(_Case, Config) ->
-    meck:new(gen_tcp, [unstick, passthrough]),
-    [{mocks, [gen_tcp]}, {frontend, none}|Config].
+init_per_suite(Config) ->
+    meck:new(Mocks = [gen_tcp, myxi_connection], [unstick, passthrough, no_link]),
+    [{mocks, Mocks}|Config].
 
-end_per_testcase(_Case, Config) ->
-    %% meck:unload(?config(mocks, Config)),
+end_per_suite(Config) ->
+    meck:unload(?config(mocks, Config)),
     suite_helper:clear([mocks], Config).
 
 all() -> [replay_handshake].
@@ -35,16 +35,25 @@ all() -> [replay_handshake].
 %%
 
 replay_handshake(_Config) ->
-    lager:start(),
-    meck:new(myxi_connection),
+    %% Setup myxi_connection:replay/4 to send a message to the caller
+    Replay = fun(Pid, _, _, _) -> Pid ! replayed, ok end,
+    meck:expect(myxi_connection, replay, Replay),
+
+    %% Mock other connection calls since they are used by the frontend
     meck:expect(myxi_connection, reply, 4, ok),
-    Self = self(),
-    meck:expect(myxi_connection, replay, fun(_, _, _, _) -> Self ! replayed, ok end),
     meck:expect(myxi_connection, forward, 5, ok),
+
+    %% Mock the client socket to send the binaries composing an
+    %% AMQP handshake
     recv_sequence(amqp_handshake()),
+
+    %% Fire up the frontend and wait for the mocked replay message
     {ok, Pid} = myxi_frontend:start_link(self(), sock),
     receive replayed -> ok end,
-    ?assert(meck:called(myxi_connection, replay, [Self, start_ok(), '_', rabbit_framing_amqp_0_9_1])).
+
+    %% Ensure the replay to the server is identical to the received handshake
+    Expected = [self(), start_ok(), '_', rabbit_framing_amqp_0_9_1],
+    ?assert(meck:called(myxi_connection, replay, Expected)).
 
 %%
 %% Helpers
