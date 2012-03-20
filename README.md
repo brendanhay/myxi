@@ -35,7 +35,7 @@ Features
 * Transparently set all queues as mirrored
 * Automatic federation of backends based on exchange locality
 * Statsd integration
-* Extension via (preferably testable/side-effect-free) middleware
+* Extension via testable/side-effect-free middleware
 
 
 <a name="build" />
