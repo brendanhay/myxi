@@ -81,7 +81,8 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% Callbacks
 %%
 
--spec init(_) -> {ok, idle, #s{}}.
+-spec init({pid(), inet:socket(), [proplists:property()]})
+          -> {ok, accepting, #s{}}.
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
@@ -96,8 +97,8 @@ handshaking({reply, Channel, Method, Protocol}, State = #s{client = Client}) ->
 
 handshaking({replay, StartOk, Replay, Protocol}, _From, State) ->
     case connect_peers(StartOk, Replay, Protocol, State) of
-        NewState = #s{} -> {reply, ok, proxying, NewState};
-        down            -> {stop, normal, State}
+        NewState when is_record(NewState, s) -> {reply, ok, proxying, NewState};
+        down                                 -> {stop, normal, State}
     end.
 
 proxying({reply, Raw}, State = #s{client = Client}) ->
@@ -168,7 +169,7 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %% Private
 %%
 
--spec connect_peers(#'connection.start_ok'{}, iolist(), protocol(), #s{})
+-spec connect_peers(#'connection.start_ok'{}, [binary()], protocol(), #s{})
                    -> #s{} | down.
 connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
     %% Get a server address according to the routing and relevant balancer
@@ -179,7 +180,7 @@ connect_peers(StartOk, Replay, Protocol, State = #s{router = Router}) ->
             down
     end.
 
--spec start_backend(#endpoint{}, [mware()], iolist(), protocol(), #s{})
+-spec start_backend(#endpoint{}, [mware()], [binary()], protocol(), #s{})
                    -> #s{} | down.
 %% @private
 start_backend(Endpoint = #endpoint{address = Addr},
@@ -194,7 +195,7 @@ start_backend(Endpoint = #endpoint{address = Addr},
             down
     end.
 
--spec send(inet:socket(), binary()) -> ok | {error, _}.
+-spec send(inet:socket(), iolist()) -> ok.
 %% @private
 send(Sock, Data) ->
     case gen_tcp:send(Sock, Data) of

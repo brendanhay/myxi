@@ -31,7 +31,7 @@
          code_change/3]).
 
 -type check() :: check_up | check_down.
--type next()  :: {ok, {#endpoint{}, [mware()]}} | down.
+-type next()  :: {ok, {#endpoint{}, [mware()]}} | {error, down}.
 
 -export_types([next/0]).
 

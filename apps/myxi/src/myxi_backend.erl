@@ -25,7 +25,8 @@
 %% API
 %%
 
--spec start_link(pid(), address(), iolist()) -> {ok, pid()}.
+-spec start_link(pid(), address(), iolist())
+                -> {ok, pid(), inet:socket()} | {error, _}.
 %% @doc
 start_link(Conn, Addr, Replay) ->
     proc_lib:start_link(?MODULE, init, [self(), Conn, Addr, Replay]).
