@@ -41,8 +41,8 @@ bin(Bin)  when is_binary(Bin) -> Bin.
 %% @doc
 config(Key) ->
     case application:load(?APPLICATION) of
-        ok             -> ok;
-        {error, Error} -> lager:error("config load ~p", [Error])
+        ok              -> ok;
+        {error, _Error} -> ok
     end,
     case application:get_env(?APPLICATION, Key) of
         undefined   -> error({config_not_found, Key});
