@@ -39,7 +39,7 @@ start_link() ->
 %% @hidden
 init([]) ->
     %% Used to ensure balancer check starts are delayed
-    {_A, _B, _C} = random:seed(erlang:now()),
+    random:seed(erlang:now()),
     Topology = topology_spec(),
     Stats = stats_spec(myxi_util:config(statsd)),
     Balancers = [balancer_spec(B) || B <- myxi_util:config(backends)],
