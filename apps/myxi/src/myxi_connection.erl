@@ -51,7 +51,7 @@
 %% API
 %%
 
--spec start_link(pid(), client(), cowboy_tcp_transport, frontend())
+-spec start_link(pid(), inet:socket(), cowboy_tcp_transport, frontend())
                 -> {ok, pid()} | ignore | {error, _}.
 %% @doc
 start_link(Listener, Client, cowboy_tcp_transport, Config) ->
