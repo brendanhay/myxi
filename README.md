@@ -8,7 +8,6 @@ Table of Contents
 
 * [Introduction](#introduction)
 * [Features](#features)
-* [Scenarios](#scenarios)
 * [Build](#build)
 * [Testing](#testing)
 * [Configure](#configure)
@@ -36,14 +35,6 @@ Features
 * Transparently set all queues as mirrored
 * Automatic federation of backends based on exchange locality
 * Statsd integration
-
-
-<a name="scenarios" />
-
-Scenarios
----------
-
-WIP
 
 
 <a name="build" />
