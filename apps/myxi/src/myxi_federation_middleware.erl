@@ -23,13 +23,16 @@
 
 -spec call(#mware{}) -> #mware{}.
 %% @doc
-call(MW = #mware{endpoint = Endpoint, method = #'queue.bind'{exchange = Exchange}, pre = Pre}) ->
-    case pre(Endpoint, Exchange) of
-        false -> MW;
-        Add   -> MW#mware{pre = Pre ++ Add}
-    end;
-call(MW) ->
-    MW.
+call(MW = #mware{endpoint = Endpoint, method = Method, pre = Pre}) ->
+    case Method of
+        #'queue.bind'{exchange = Exchange} ->
+            case pre(Endpoint, Exchange) of
+                false -> MW;
+                Add   -> MW#mware{pre = Pre ++ Add}
+            end;
+        _Other ->
+            MW
+    end.
 
 %%
 %% Private

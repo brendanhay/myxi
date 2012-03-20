@@ -21,6 +21,8 @@
 -type result()   :: {method() | unmodified, [action()], [action()]}.
 -type composed() :: fun((method()) -> result()).
 
+
+
 -export_types([result/0,
                composed/0]).
 
@@ -28,7 +30,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{call, 1}] | undefined.
+-spec behaviour_info(_) -> [{call, 1}, ...] | undefined.
 %% @hidden
 behaviour_info(callbacks) -> [{call, 1}];
 behaviour_info(_Other)    -> undefined.
@@ -49,7 +51,7 @@ wrap(Endpoint, Protocol, MW) ->
 %% Private
 %%
 
--spec compose([fun()]) -> fun().
+-spec compose([fun((#mware{}) -> #mware{})]) -> fun((#mware{}) -> #mware{}).
 %% @private
 compose(Fns) -> lists:foldl(fun compose/2, fun(X) -> X end, Fns).
 
