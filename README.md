@@ -68,6 +68,9 @@ make unit T=myxi_util            # The eunit module, minus the '_test.erl' suffi
 make integration T=myxi_frontend # A common_test suite, minus the '_SUITE.erl' suffix
 ```
 
+There is also a sub-directory `./dev` which contains a set of [foreman](github.com/ddollar/foreman) related configuration to start the two backend nodes
+referenced in the default configuration.
+
 
 <a name="configure" />
 
