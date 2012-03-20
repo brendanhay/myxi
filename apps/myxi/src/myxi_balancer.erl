@@ -60,7 +60,7 @@ behaviour_info(_Other)    -> undefined.
 %% API
 %%
 
--spec start_link(pid(), module(), [#endpoint{}], [mware()], pos_integer())
+-spec start_link(atom(), module(), [#endpoint{}], [mware()], pos_integer())
                 -> {ok, pid()} | {error, _} | ignore.
 %% @doc
 start_link(Name, Mod, Endpoints, MW, Delay) ->

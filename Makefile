@@ -87,5 +87,5 @@ dialyzer: build
 xref:
 	$(REBAR) skip_deps=true xref
 
-typer: build
+typer:
 	typer --annotate --plt $(PLT) -I deps/ -I apps/myxi/ -r apps/

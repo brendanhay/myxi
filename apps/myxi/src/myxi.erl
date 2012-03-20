@@ -40,11 +40,14 @@ stop() ->
 %% Callbacks
 %%
 
--spec start(normal, _) -> ignore | {error, _} | {ok, pid()}.
+-spec start(normal, _) -> {ok, pid()} | {error, _}.
 %% @hidden
 start(normal, _Args) ->
-    start_listeners(),
-    myxi_sup:start_link().
+    ok = start_listeners(),
+    case myxi_sup:start_link() of
+        ignore -> {error, sup_returned_ignore};
+        Ret    -> Ret
+    end.
 
 -spec stop(_) -> ok.
 %% @hidden
@@ -72,9 +75,9 @@ ensure_started(App, {error, Reason}) ->
 %% Setup
 %%
 
--spec start_listeners() -> [{ok, pid()}].
+-spec start_listeners() -> ok.
 %% @private
-start_listeners() -> [listener(Opts) || Opts <- myxi_util:config(frontends)].
+start_listeners() -> lists:foreach(fun listener/1, myxi_util:config(frontends)).
 
 -spec listener(frontend()) -> {ok, pid()}.
 %% @private
