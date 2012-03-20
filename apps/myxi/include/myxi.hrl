@@ -50,9 +50,6 @@
                       {balance, balancer()} |
                       {nodes, [{node(), inet:hostname(), inet:port_number()}]}}].
 
--type client()   :: inet:socket().
--type server()   :: inet:socket().
-
 -type protocol() :: rabbit_framing:protocol().
 -type method()   :: rabbit_framing:amqp_method_record().
 

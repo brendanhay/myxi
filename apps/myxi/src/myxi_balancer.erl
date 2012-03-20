@@ -64,7 +64,7 @@ behaviour_info(_Other)    -> undefined.
                 -> {ok, pid()} | {error, _} | ignore.
 %% @doc
 start_link(Name, Mod, Endpoints, MW, Delay) ->
-    lager:info("BALANCE-START ~s ~s ~p", [Name, Mod, Endpoints]),
+    lager:info("BALANCE-START ~s:~s ~p", [Name, Mod, node_names(Endpoints)]),
     State = #s{name = Name, mod = Mod, up = Endpoints, mware = MW},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
@@ -147,9 +147,9 @@ health_check(?UP, State = #s{up = Up, down = Down}) ->
     State#s{up = NewUp, down = Down ++ AddDown};
 health_check(?DOWN, State = #s{down = []}) ->
     State;
-health_check(?DOWN, State = #s{up = Up, down = Down}) ->
+health_check(?DOWN, State = #s{mod = Mod, name = Name, up = Up, down = Down}) ->
     {AddUp, NewDown} = check(Down),
-    lager:info("BALANCE-DOWN ~p ~p", [self(), NewDown]),
+    lager:info("BALANCE-DOWN ~s:~s ~p", [Name, Mod, node_names(NewDown)]),
     %% Add endpoints for backends that have just come up
     myxi_topology:add_endpoints(AddUp),
     State#s{up = Up ++ AddUp, down = NewDown}.
@@ -168,3 +168,7 @@ check([H|T], Up, Down) ->
         pong -> check(T, [H|Up], Down);
         pang -> check(T, Up, [H|Down])
     end.
+
+-spec node_names([#endpoint{}]) -> [node()].
+%% @private
+node_names(Endpoints) -> [N || #endpoint{node = N} <- Endpoints].
