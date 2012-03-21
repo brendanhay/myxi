@@ -34,7 +34,7 @@ Features
 * Route traffic to clusters or individual nodes based on AMQP username
 * Transparently set all queues as mirrored
 * Automatic federation of backends based on exchange locality
-* Statsd integration
+* Statsd integration (via an optional `myxi_stats` application)
 * Extension via testable/side-effect-free middleware
 
 
@@ -90,7 +90,7 @@ See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
 Any other tcp options supported by `gen_tcp` can be added here.
 
 Myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
-instance and the `graphite` namespace prefix are configurable:
+instance and the `graphite` namespace prefix are configurable via:
 
 ```erlang
 {statsd, [
@@ -98,6 +98,9 @@ instance and the `graphite` namespace prefix are configurable:
    {url, 'ENVIRONMENT_VARIABLE'}
 ]}
 ```
+
+This needs to be entered in the `apps/myxi_stats/src/myxi_stats.app.src` file or
+under the `myxi_stats` section in the `app.config`
 
 <a name="frontends" />
 
