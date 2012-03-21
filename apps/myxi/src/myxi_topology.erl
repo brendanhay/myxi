@@ -132,7 +132,7 @@ locate_exchange(Name, #endpoint{node = Node}) ->
     Args = [{rabbit_exchange, Resource}],
     case rpc:call(Node, rabbit_misc, dirty_read, Args) of
         {badrpc, Error} -> error_m:fail(Error);
-        Result          -> error_m:return(Result)
+        {ok, Result}    -> error_m:return(Result)
     end.
 
 -spec add_exchange(#exchange{}, atom()) -> ok.
