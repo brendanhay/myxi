@@ -47,7 +47,7 @@ test: build unit integration
 #
 
 DEPS=deps/*/ebin
-ERL=exec erl -pa apps/myxi/ebin $(DEPS) -sname myxi_proxy -hidden -connect_all false
+ERL=exec erl -pa apps/*/ebin $(DEPS) -sname myxi -hidden -connect_all false
 
 .PHONY: boot noboot
 
