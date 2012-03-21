@@ -17,6 +17,7 @@
 %% API
 -export([start_link/2,
          connect/1,
+         connected/0,
          counter/2]).
 
 %% Callbacks
@@ -52,6 +53,10 @@ start_link(Ns, Url) ->
 %% @doc
 connect(Conn) -> cast({connect, Conn, now()}).
 
+-spec connected() -> [{pid(), non_neg_integer()}].
+%% @doc
+connected() -> call(connected).
+
 -spec counter(atom(), pos_integer()) -> ok.
 %% @doc
 counter(Stat, Step) -> cast({counter, Stat, Step}).
@@ -69,9 +74,13 @@ init({Ns, Url}) ->
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 
--spec handle_call(_, _, #s{}) -> {reply, ok, #s{}}.
+-spec handle_call(connected, _, #s{}) -> {reply, ok, #s{}}.
 %% @hidden
-handle_call(_Msg, _From, State) -> {reply, ok, State}.
+handle_call(connected, _From, State) ->
+    Head = {?PROP('_'), '_', '_'},
+    Results = gproc:select([{Head, [], ['$$']}]),
+    Conns = [{P, elapsed(T)} || [?PROP(P), _, T] <- Results],
+    {reply, Conns, State}.
 
 -spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
 %% listener creates a myxi_connection
@@ -94,7 +103,7 @@ handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
                  normal -> disconnect.soft;
                  _Other -> disconnect.hard
              end,
-    stat(State, timer, duration, now_diff(now(), Started)),
+    stat(State, timer, duration, elapsed(Started)),
     stat(State, counter, Status, 1),
     {noreply, State}.
 
@@ -116,9 +125,13 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% @private
 cast(Msg) -> gen_server:cast(?MODULE, Msg).
 
--spec now_diff(erlang:timestamp(), erlang:timestamp()) -> non_neg_integer().
-%% @private Get the difference in milliseconds between two timestamps
-now_diff(T1, T2) -> trunc(timer:now_diff(T1, T2) / 1000).
+-spec call(message()) -> ok.
+%% @private
+call(Msg) -> gen_server:call(?MODULE, Msg).
+
+-spec elapsed(erlang:timestamp()) -> non_neg_integer().
+%% @private Get the difference in milliseconds now and a timestamp
+elapsed(T) -> trunc(timer:now_diff(now(), T) / 1000).
 
 -spec stat(#s{}, counter | timer, string() | atom(), pos_integer(), float()) -> ok.
 %% @private Create a statistic entry with a sample rate
