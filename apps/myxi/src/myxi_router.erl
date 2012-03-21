@@ -12,9 +12,6 @@
 
 -include("include/myxi.hrl").
 
-%% Behaviour
--export([behaviour_info/1]).
-
 %% API
 -export([new/1,
          route/3]).
@@ -23,10 +20,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{select_balancer, 2}, ...] | undefined.
-%% @hidden
-behaviour_info(callbacks) -> [{select_balancer, 2}];
-behaviour_info(_Other)    -> undefined.
+-callback select_balancer(#'connection.start_ok'{}, protocol()) -> atom().
 
 %%
 %% API

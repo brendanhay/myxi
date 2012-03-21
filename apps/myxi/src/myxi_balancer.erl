@@ -14,9 +14,6 @@
 
 -behaviour(gen_server).
 
-%% Behaviour
--export([behaviour_info/1]).
-
 %% API
 -export([start_link/5,
          stop/1,
@@ -43,7 +40,6 @@
 
 -define(UP,         check_up).
 -define(UP_INTER,   5000).
-
 -define(DOWN,       check_down).
 -define(DOWN_INTER, 12000).
 
@@ -51,10 +47,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{next, 1}, ...] | undefined.
-%% @hidden
-behaviour_info(callbacks) -> [{next, 1}];
-behaviour_info(_Other)    -> undefined.
+-callback next([#endpoint{}]) -> {#endpoint{} | down, [#endpoint{}]}.
 
 %%
 %% API

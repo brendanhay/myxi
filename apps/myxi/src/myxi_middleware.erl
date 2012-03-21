@@ -12,16 +12,11 @@
 
 -include("include/myxi.hrl").
 
-%% Behaviour
--export([behaviour_info/1]).
-
 %% API
 -export([wrap/3]).
 
 -type result()   :: {method() | unmodified, [action()], [action()]}.
 -type composed() :: fun((method()) -> result()).
-
-
 
 -export_types([result/0,
                composed/0]).
@@ -30,10 +25,7 @@
 %% Behaviour
 %%
 
--spec behaviour_info(_) -> [{call, 1}, ...] | undefined.
-%% @hidden
-behaviour_info(callbacks) -> [{call, 1}];
-behaviour_info(_Other)    -> undefined.
+-callback call(#mware{}) -> #mware{}.
 
 %%
 %% API

@@ -28,8 +28,7 @@
 
 -spec start_link() -> {ok, pid()} | ignore | {error, _}.
 %% @doc
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 %%
 %% Callbacks
