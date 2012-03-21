@@ -17,8 +17,9 @@
 %% API
 -export([start_link/2,
          connect/1,
-         connected/0,
-         counter/2]).
+         establish/2,
+         counter/2,
+         connections/0]).
 
 %% Callbacks
 -export([init/1,
@@ -53,13 +54,17 @@ start_link(Ns, Url) ->
 %% @doc
 connect(Conn) -> cast({connect, Conn, now()}).
 
--spec connected() -> [{pid(), non_neg_integer()}].
+-spec establish(pid(), #endpoint{}) -> ok.
 %% @doc
-connected() -> call(connected).
+establish(Conn, #endpoint{node = Node}) -> cast({establish, Conn, Node}).
 
 -spec counter(atom(), pos_integer()) -> ok.
 %% @doc
 counter(Stat, Step) -> cast({counter, Stat, Step}).
+
+-spec connections() -> [{pid(), non_neg_integer()}].
+%% @doc
+connections() -> call(connections).
 
 %%
 %% Callbacks
@@ -74,20 +79,25 @@ init({Ns, Url}) ->
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 
--spec handle_call(connected, _, #s{}) -> {reply, ok, #s{}}.
+-spec handle_call(connections, _, #s{}) -> {reply, ok, #s{}}.
 %% @hidden
-handle_call(connected, _From, State) ->
+handle_call(connections, _From, State) ->
     Head = {?PROP('_'), '_', '_'},
     Results = gproc:select([{Head, [], ['$$']}]),
-    Conns = [{P, elapsed(T)} || [?PROP(P), _, T] <- Results],
+    Conns = [{P, elapsed(T), N} || [?PROP(P), _, {T, N}] <- Results],
     {reply, Conns, State}.
 
 -spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
 %% listener creates a myxi_connection
 handle_cast({connect, Conn, Started}, State) ->
-    gproc:reg(?PROP(Conn), Started),
+    true = gproc:reg(?PROP(Conn), {Started, none}),
     monitor(process, Conn),
     stat(State, counter, connect, 1),
+    {noreply, State};
+%% connection to backend established
+handle_cast({establish, Conn, Node}, State) ->
+    {Started, none} = gproc:get_value(?PROP(Conn)),
+    true = gproc:set_value(?PROP(Conn), {Started, Node}),
     {noreply, State};
 %% miscellaneous counter increment
 handle_cast({counter, Stat, Step}, State) ->
@@ -97,8 +107,8 @@ handle_cast({counter, Stat, Step}, State) ->
 -spec handle_info({'DOWN', _, process, _, _}, #s{}) -> {noreply, #s{}}.
 %% @hidden myxi_connection terminates
 handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
-    Started = gproc:get_value(?PROP(Conn)),
-    gproc:unreg(?PROP(Conn)),
+    {Started, _Endpoint} = gproc:get_value(?PROP(Conn)),
+    true = gproc:unreg(?PROP(Conn)),
     Status = case Reason of
                  normal -> disconnect.soft;
                  _Other -> disconnect.hard

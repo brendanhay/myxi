@@ -188,6 +188,7 @@ start_backend(Endpoint = #endpoint{address = Addr},
     %% Start a backend, replaying the previous client data to the server
     case myxi_backend:start_link(self(), Addr, Replay) of
         {ok, Pid, Sock} ->
+            ok = myxi_stats:establish(self(), Endpoint),
             %% Create a fun composed of all available middleware
             Composed = myxi_middleware:wrap(Endpoint, Protocol, MW),
             State#s{backend = Pid, server = Sock, mware = Composed};
