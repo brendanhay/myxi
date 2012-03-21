@@ -130,7 +130,10 @@ run_exchange_verification(Name, Backend) ->
 locate_exchange(Name, #endpoint{node = Node}) ->
     Resource = rabbit_misc:r(<<"/">>, exchange, Name),
     Args = [{rabbit_exchange, Resource}],
-    rpc:call(Node, rabbit_misc, dirty_read, Args).
+    case rpc:call(Node, rabbit_misc, dirty_read, Args) of
+        {badrpc, Error} -> error_m:fail(Error);
+        Result          -> error_m:return(Result)
+    end.
 
 -spec add_exchange(#exchange{}, atom()) -> ok.
 %% @private
