@@ -1,6 +1,9 @@
 ## Name of the node
 -sname myxi
 
+## Cookie
+-setcookie fafaafbb18bedefa4432419bda884f4f095eeed5
+
 ## Enable kernel poll and a few async threads
 +K true
 +A 5
