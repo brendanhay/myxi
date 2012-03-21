@@ -10,7 +10,7 @@
 
 -module(myxi_balancer).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 -behaviour(gen_server).
 

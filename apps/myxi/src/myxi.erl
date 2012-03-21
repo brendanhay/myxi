@@ -12,7 +12,7 @@
 
 -behaviour(application).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 %% API
 -export([start/0,
@@ -28,7 +28,7 @@
 
 -spec start() -> ok.
 %% @doc
-start() -> start(?MODULE).
+start() -> myxi_boot:start(?MODULE).
 
 -spec stop() -> ok.
 %% @doc
@@ -51,25 +51,7 @@ start(normal, _Args) ->
 
 -spec stop(_) -> ok.
 %% @hidden
-stop(_State) -> ok.
-
-%%
-%% Dependencies
-%%
-
--spec start(atom()) -> ok.
-start(App) -> ensure_started(App, application:start(App, permanent)).
-
--spec ensure_started(atom(), ok | {error, {already_started, atom()} | {not_started, atom()}}) -> ok.
-ensure_started(_App, ok) ->
-    ok;
-ensure_started(_App, {error, {already_started, _App}}) ->
-    ok;
-ensure_started(App, {error, {not_started, Dep}}) ->
-    start(Dep),
-    start(App);
-ensure_started(App, {error, Reason}) ->
-    erlang:error({app_start_failed, App, Reason}).
+stop(_Args) -> ok.
 
 %%
 %% Setup

@@ -12,7 +12,7 @@
 
 -behaviour(myxi_balancer).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 %% Callbacks
 -export([next/1]).

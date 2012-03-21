@@ -12,7 +12,7 @@
 
 -behaviour(supervisor).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 %% API
 -export([start_link/0]).
@@ -39,28 +39,10 @@ start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 init([]) ->
     %% Used to ensure balancer check starts are delayed
     random:seed(erlang:now()),
-    Topology = topology_spec(),
-    Stats = stats_spec(myxi_util:config(statsd)),
+    Topology = {topology, {myxi_topology, start_link, []},
+                permanent, 2000, worker, [myxi_topology]},
     Balancers = [balancer_spec(B) || B <- myxi_util:config(backends)],
-    {ok, {{one_for_one, 3, 20}, [Topology, Stats|Balancers]}}.
-
-%%
-%% Topology Map
-%%
-
-topology_spec() ->
-    {topology, {myxi_topology, start_link, []},
-     permanent, 2000, worker, [myxi_topology]}.
-
-%%
-%% Grpoc, Graphite
-%%
-
-stats_spec(Config) ->
-    Ns = myxi_util:option(namespace, Config),
-    Url = myxi_util:os_env(myxi_util:option(url, Config), "localhost:8126"),
-    {stats, {myxi_stats, start_link, [Ns, Url]},
-     permanent, 2000, worker, [myxi_stats]}.
+    {ok, {{one_for_one, 3, 20}, [Topology|Balancers]}}.
 
 %%
 %% Balancers

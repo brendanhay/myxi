@@ -10,7 +10,7 @@
 
 -module(myxi_middleware).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 %% API
 -export([wrap/3]).

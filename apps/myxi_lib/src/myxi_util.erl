@@ -15,6 +15,7 @@
 %% API
 -export([bin/1,
          config/1,
+         config/2,
          option/2,
          format_ip/1,
          format_ip/2,
@@ -24,8 +25,6 @@
          split_host/2,
          os_env/1,
          os_env/2]).
-
--define(APPLICATION, myxi).
 
 %%
 %% API
@@ -39,12 +38,16 @@ bin(Bin)  when is_binary(Bin) -> Bin.
 
 -spec config(atom()) -> any().
 %% @doc
-config(Key) ->
-    case application:load(?APPLICATION) of
+config(Key) -> config(Key, myxi).
+
+-spec config(atom(), atom()) -> any().
+%% @doc
+config(Key, App) ->
+    case application:load(App) of
         ok              -> ok;
         {error, _Error} -> ok
     end,
-    case application:get_env(?APPLICATION, Key) of
+    case application:get_env(App, Key) of
         undefined   -> error({config_not_found, Key});
         {ok, Value} -> Value
     end.

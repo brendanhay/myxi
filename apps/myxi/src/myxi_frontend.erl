@@ -10,7 +10,7 @@
 
 -module(myxi_frontend).
 
--include("include/myxi.hrl").
+-include_lib("myxi_lib/include/myxi.hrl").
 
 %% API
 -export([start_link/2]).

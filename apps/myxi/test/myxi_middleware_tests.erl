@@ -10,7 +10,7 @@
 
 -module(myxi_middleware_tests).
 
--include("include/myxi_test.hrl").
+-include_lib("myxi_lib/include/myxi_test.hrl").
 
 -define(MOCK, myxi_mw_test).
 

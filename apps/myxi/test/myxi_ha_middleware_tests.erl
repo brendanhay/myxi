@@ -10,7 +10,7 @@
 
 -module(myxi_ha_middleware_tests).
 
--include("include/myxi_test.hrl").
+-include_lib("myxi_lib/include/myxi_test.hrl").
 
 %%
 %% Units

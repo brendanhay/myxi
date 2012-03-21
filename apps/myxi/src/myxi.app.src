@@ -7,7 +7,8 @@
         stdlib,
         lager,
         cowboy,
-        gproc
+        myxi_lib,
+        myxi_stats
     ]},
     {mod, {myxi, []}},
     {env, [
@@ -16,14 +17,6 @@
         %% Global options appended to gen_tcp:listen/connect calls
         {tcp, [
             {keepalive, true}
-        ]},
-
-        %% statsd
-        %% namespace - the prefix to prepend to statsd keys
-        %% url - <host:port> for udp connection
-        {statsd, [
-            {namespace, "toto"},
-            {url, 'STATSD_URL'}
         ]},
 
         %% frontends
