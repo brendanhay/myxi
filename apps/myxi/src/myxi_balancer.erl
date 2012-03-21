@@ -68,10 +68,10 @@ start_link(Name, Mod, Endpoints, MW, Delay) ->
     State = #s{name = Name, mod = Mod, up = Endpoints, mware = MW},
     gen_server:start_link({local, Name}, ?MODULE, {State, Delay}, []).
 
--spec stop(pid()) -> ok.
+-spec stop(atom() | pid()) -> ok.
 stop(Pid) -> gen_server:cast(Pid, stop).
 
--spec next(pid()) -> next().
+-spec next(atom() | pid()) -> next().
 %% @doc
 next(Pid) -> gen_server:call(Pid, next).
 

@@ -53,13 +53,10 @@ stop() -> gen_server:cast(?MODULE, stop).
 -spec add_endpoints([#endpoint{}]) -> ok.
 %% @doc
 add_endpoints(Endpoints) ->
-    case lists:flatten([list_exchanges(E) || E <- Endpoints]) of
-        [] ->
-            ok;
-        Exchanges ->
-            lager:info("TOPOLOGY-INS ~p", [Exchanges]),
-            ets:insert(?TABLE, Exchanges)
-    end.
+    Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
+    lager:info("TOPOLOGY-INS ~p", [Exchanges]),
+    true = ets:insert(?TABLE, Exchanges),
+    ok.
 
 -spec find_exchange(binary()) -> [{atom(), #'exchange.declare'{}}].
 %% @doc
@@ -138,8 +135,9 @@ locate_exchange(Name, #endpoint{node = Node}) ->
 -spec add_exchange(#exchange{}, atom()) -> ok.
 %% @private
 add_exchange(Exchange, Backend) ->
-    Record = ets:insert(?TABLE, #ex{name = name(Exchange), backend = Backend, declare = declare(Exchange)}),
-    ets:insert(?TABLE, Record),
+    true = ets:insert(?TABLE, #ex{name    = name(Exchange),
+                                  backend = Backend,
+                                  declare = declare(Exchange)}),
     ok.
 
 -spec list_exchanges(#endpoint{}) -> [{binary(), node(), #exchange{}}].
