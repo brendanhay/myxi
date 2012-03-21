@@ -1,0 +1,4 @@
+source :rubygems
+
+gem "thor"
+gem "amqp"
