@@ -16,7 +16,7 @@
 
 %% API
 -export([start_link/2,
-         connect/1,
+         connect/2,
          establish/2,
          counter/2,
          connections/0]).
@@ -29,13 +29,19 @@
          terminate/2,
          code_change/3]).
 
--type message() :: {connect, pid(), erlang:timestamp()} |
+-type message() :: {connect, pid(), inet:socket(), erlang:timestamp()} |
+                   {establish, pid(), node()} |
                    {counter, atom(), pos_integer()}.
 
 -record(s, {sock               :: gen_udp:socket(),
             host = "localhost" :: string(),
             port = 8126        :: inet:port_number(),
             ns = ""            :: string()}).
+
+-record(r, {conn               :: pid(),
+            client             :: inet:socket(),
+            server = none      :: node() | none,
+            started            :: erlang:timestamp()}).
 
 %%
 %% API
@@ -50,9 +56,9 @@ start_link(Ns, Url) ->
 %% Stats
 %%
 
--spec connect(pid()) -> ok.
+-spec connect(pid(), inet:socket()) -> ok.
 %% @doc
-connect(Conn) -> cast({connect, Conn, now()}).
+connect(Conn, Client) -> cast({connect, Conn, Client, now()}).
 
 -spec establish(pid(), #endpoint{}) -> ok.
 %% @doc
@@ -84,21 +90,23 @@ init({Ns, Url}) ->
 handle_call(connections, _From, State) ->
     Head = {?PROP('_'), '_', '_'},
     Results = gproc:select([{Head, [], ['$$']}]),
-    Conns = [{P, elapsed(T), N} || [?PROP(P), _, {T, N}] <- Results],
+    Conns = [{P, elapsed(T), S} || [?PROP(P), _, #r{server = S, started = T}] <- Results],
     {reply, Conns, State}.
 
 -spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
 %% listener creates a myxi_connection
-handle_cast({connect, Conn, Started}, State) ->
-    true = gproc:reg(?PROP(Conn), {Started, none}),
+handle_cast({connect, Conn, Client, Started}, State) ->
+    true = gproc:reg(?PROP(Conn), #r{client = Client, started = Started}),
     monitor(process, Conn),
     stat(State, counter, connect, 1),
     {noreply, State};
+
 %% connection to backend established
-handle_cast({establish, Conn, Node}, State) ->
-    {Started, none} = gproc:get_value(?PROP(Conn)),
-    true = gproc:set_value(?PROP(Conn), {Started, Node}),
+handle_cast({establish, Conn, Server}, State) ->
+    Record = gproc:get_value(?PROP(Conn)),
+    true = gproc:set_value(?PROP(Conn), Record#r{server = Server}),
     {noreply, State};
+
 %% miscellaneous counter increment
 handle_cast({counter, Stat, Step}, State) ->
     stat(State, counter, Stat, Step),
@@ -107,13 +115,13 @@ handle_cast({counter, Stat, Step}, State) ->
 -spec handle_info({'DOWN', _, process, _, _}, #s{}) -> {noreply, #s{}}.
 %% @hidden myxi_connection terminates
 handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
-    {Started, _Endpoint} = gproc:get_value(?PROP(Conn)),
+    Record = gproc:get_value(?PROP(Conn)),
     true = gproc:unreg(?PROP(Conn)),
     Status = case Reason of
                  normal -> disconnect.soft;
                  _Other -> disconnect.hard
              end,
-    stat(State, timer, duration, elapsed(Started)),
+    stat(State, timer, duration, elapsed(Record#r.started)),
     stat(State, counter, Status, 1),
     {noreply, State}.
 

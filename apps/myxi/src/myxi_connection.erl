@@ -86,7 +86,7 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
-    myxi_stats:connect(self()),
+    myxi_stats:connect(self(), Client),
     {ok, accepting, #s{router   = myxi_router:new(Config),
                        listener = Listener,
                        client   = Client}}.
