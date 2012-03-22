@@ -9,7 +9,7 @@
 %% @doc
 %%
 
--include("include/myxi.hrl").
+-include("myxi.hrl").
 
 -include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").

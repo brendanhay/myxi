@@ -10,7 +10,7 @@
 
 -module(myxi_topology_SUITE).
 
--include_lib("myxi_lib/include/myxi_common_test.hrl").
+-include_lib("myxi/include/myxi_common_test.hrl").
 
 -define(BALANCER, myxi_dummy_balancer).
 -define(UP,       check_up).
