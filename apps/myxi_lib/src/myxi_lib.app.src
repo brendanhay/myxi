@@ -1,8 +1,0 @@
-{application, myxi_lib, [
-    {description, "Myxi Library"},
-    {vsn, "0.1.0"},
-    {applications, [
-        kernel,
-        stdlib
-    ]}
-]}.

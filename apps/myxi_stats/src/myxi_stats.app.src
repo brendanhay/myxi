@@ -6,9 +6,10 @@
         kernel,
         stdlib,
         lager,
-        gproc
+        gproc,
+        myxi
     ]},
-    {mod, {myxi_stats, []}},
+    {mod, {myxi_application, [myxi_stats]}},
     {env, [
 
         %% statsd

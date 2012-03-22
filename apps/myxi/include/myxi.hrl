@@ -67,15 +67,18 @@
 %% Records
 %%
 
--record(endpoint, {node         :: node(),
-                   backend      :: atom(),
-                   address      :: address()}).
+-record(endpoint, {node      :: node(),
+                   backend   :: atom(),
+                   address   :: address()}).
 
--record(mware,    {method       :: method() | undefined,
-                   endpoint     :: #endpoint{},
-                   protocol     :: protocol(),
-                   pre = []     :: [action()],
-                   post = []    :: [action()]}).
+-record(mware,    {method    :: method() | undefined,
+                   endpoint  :: #endpoint{},
+                   protocol  :: protocol(),
+                   pre = []  :: [action()],
+                   post = [] :: [action()]}).
+
+-record(config,   {id        :: atom(),
+                   term      :: term()}).
 
 %%
 %% GProc

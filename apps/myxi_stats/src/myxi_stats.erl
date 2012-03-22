@@ -10,36 +10,22 @@
 
 -module(myxi_stats).
 
--behaviour(application).
+-behaviour(myxi_application).
 
--include_lib("myxi_lib/include/myxi.hrl").
+-include_lib("myxi/include/myxi.hrl").
 
 %% API
--export([start/0,
-         stop/0,
-         connect/2,
+-export([connect/2,
          establish/2,
          counter/2,
          connections/0]).
 
 %% Callbacks
--export([start/2,
-         stop/1]).
+-export([start_link/0,
+         config/0]).
 
 %%
 %% API
-%%
-
--spec start() -> ok.
-%% @doc
-start() -> myxi_boot:start(?MODULE).
-
--spec stop() -> ok.
-%% @doc
-stop() -> application:stop(?MODULE).
-
-%%
-%% Stats
 %%
 
 -spec connect(pid(), inet:socket()) -> ok.
@@ -66,14 +52,10 @@ connections() ->
 %% Callbacks
 %%
 
--spec start(normal, _) -> {ok, pid()} | {error, _}.
+-spec start_link() -> {ok, pid()} | {error, _}.
 %% @hidden
-start(normal, _Args) ->
-    case myxi_stats_sup:start_link() of
-        ignore -> {error, sup_returned_ignore};
-        Ret    -> Ret
-    end.
+start_link() -> myxi_stats_sup:start_link().
 
--spec stop(_) -> ok.
+-spec config() -> [#config{}].
 %% @hidden
-stop(_Args) -> ok.
+config() -> [].

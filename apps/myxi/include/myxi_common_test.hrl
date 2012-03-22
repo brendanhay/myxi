@@ -1,5 +1,6 @@
 %% This Source Code Form is subject to the terms of
 %% the Mozilla Public License, v. 2.0.
+%%
 %% A copy of the MPL can be found in the LICENSE file or
 %% you can obtain it at http://mozilla.org/MPL/2.0/.
 %%
@@ -8,20 +9,9 @@
 %% @doc
 %%
 
--module(myxi_roundrobin_balancer).
+-include("myxi.hrl").
 
--behaviour(myxi_balancer).
+-include_lib("common_test/include/ct.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
--include_lib("myxi_lib/include/myxi.hrl").
-
-%% Callbacks
--export([next/1]).
-
-%%
-%% Callbacks
-%%
-
--spec next([#endpoint{}]) -> {#endpoint{} | down, [#endpoint{}]}.
-%% @doc
-next([])    -> {down, []};
-next([H|T]) -> {H, T ++ [H]}.
+-compile(export_all).

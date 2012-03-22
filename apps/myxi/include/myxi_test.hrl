@@ -9,9 +9,12 @@
 %% @doc
 %%
 
--include_lib("myxi_lib/include/myxi.hrl").
+-include("include/myxi.hrl").
 
--include_lib("common_test/include/ct.hrl").
+-include_lib("proper/include/proper.hrl").
 -include_lib("eunit/include/eunit.hrl").
+
+-define(EQC(P),  ?assert(proper:quickcheck(P))).
+-define(_EQC(P), ?_assert(proper:quickcheck(P))).
 
 -compile(export_all).

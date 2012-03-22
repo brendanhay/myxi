@@ -8,7 +8,7 @@
 %% @doc
 %%
 
--module(myxi).
+-module(myxi_proxy).
 
 -behaviour(myxi_application).
 
@@ -42,8 +42,31 @@ stop() ->
 
 -spec start_link() -> {ok, pid()} | {error, _}.
 %% @hidden
-start_link() -> myxi_sup:start_link().
+start_link() -> myxi_proxy_sup:start_link().
 
 -spec config() -> [#config{}].
 %% @hidden
 config() -> [].
+
+%%
+%% Setup
+%%
+
+-spec start_listeners() -> ok.
+%% @private
+start_listeners() -> lists:foreach(fun listener/1, myxi_util:config(frontends)).
+
+-spec listener(frontend()) -> {ok, pid()}.
+%% @private
+listener(Config) ->
+    Tcp = tcp_options(Config),
+    lager:info("LISTEN ~s", [myxi_util:format_ip(Tcp)]),
+    cowboy:start_listener(amqp_listener, myxi_util:option(max, Config),
+                          cowboy_tcp_transport, Tcp,
+                          myxi_connection, Config).
+
+-spec tcp_options(frontend()) -> [proplists:property()].
+%% @private
+tcp_options(Config) ->
+    [{ip, myxi_util:option(ip, Config)},
+     {port, myxi_util:option(port, Config)}|myxi_util:config(tcp)].
