@@ -16,14 +16,15 @@
         %% tcp
         %% Global options appended to gen_tcp:listen/connect calls
         {tcp, [
-            {keepalive, true}
+            {keepalive, true},
+            {max_connections, 1024}
         ]},
 
         %% frontends
         {frontends, [
             [{ip, "0.0.0.0"},
              {port, 5672},
-             {max, 10},
+             {acceptors, 30},
              {router, myxi_user_router, [
                  [{user, <<"rabbit">>}, {backend, rabbit}],
                  [{user, <<"chinchilla">>}, {backend, chinchilla}]
