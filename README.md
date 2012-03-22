@@ -83,11 +83,13 @@ See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
 
 ```erlang
 {tcp, [
-    {keepalive, true}
+    {keepalive, true},
+    {max_connections, 1024}
 ]}
 ```
 
-Any other tcp options supported by `gen_tcp` can be added here.
+Any other tcp options supported by `gen_tcp` or `cowboy` protocols can be added in the
+`apps/myxi/src/myxi.app.src` file or under the `myxi` section in the `app.config`.
 
 Myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
 instance and the `graphite` namespace prefix are configurable via:
@@ -100,7 +102,8 @@ instance and the `graphite` namespace prefix are configurable via:
 ```
 
 This needs to be entered in the `apps/myxi_stats/src/myxi_stats.app.src` file or
-under the `myxi_stats` section in the `app.config`
+under the `myxi_stats` section in the `app.config`.
+
 
 <a name="frontends" />
 
@@ -113,13 +116,15 @@ and a routing mechanism to determine which backend+balancer accepted connections
 {frontends, [
     [{ip, "0.0.0.0"},
      {port, 5672},
-     {max, 10},
+     {acceptors, 30},
      {router, myxi_user_router, [
          [{user, <<"rabbit">>}, {backend, rabbit}],
          [{user, <<"chinchilla">>}, {backend, chinchilla}]
      ]}]
 ]},
 ```
+
+`acceptors` is the initial number of processes accepting connections on the specific listen address.
 
 Currently only `myxi_user_router` is supported, which uses the `LOGIN` component
 from the AMQP handshake to select a backend.
@@ -171,6 +176,9 @@ confirm to short node names.
     ]}
 ]}
 ```
+
+The frontend/backend configuration needs to be entered in the `apps/myxi_proxy/src/myxi_proxy.app.src` file or
+under the `myxi_proxy` section in the `app.config`.
 
 #### Available Middleware
 
