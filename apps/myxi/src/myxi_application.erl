@@ -42,7 +42,7 @@ start_link(App) -> start_link(App, permanent).
 %% @doc
 start_link(App, Restart) ->
     ok = myxi_config:load(App),
-    ensure_started(App, application:start(App)).
+    ensure_started(App, application:start(App, Restart)).
 
 -spec terminate(atom()) -> ok.
 %% @doc
