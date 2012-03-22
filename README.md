@@ -78,19 +78,6 @@ referenced in the default configuration.
 Configure
 ---------
 
-TCP keepalive packets can be sent from myxi to the connected client and server sockets.
-See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
-
-```erlang
-{tcp, [
-    {keepalive, true},
-    {max_connections, 1024}
-]}
-```
-
-Any other tcp options supported by `gen_tcp` or `cowboy` protocols can be added in the
-`apps/myxi/src/myxi.app.src` file or under the `myxi` section in the `app.config`.
-
 Myxi supports [statsd](github.com/etsy/statsd) integration. The url for the `statsd`
 instance and the `graphite` namespace prefix are configurable via:
 
@@ -108,6 +95,16 @@ under the `myxi_stats` section in the `app.config`.
 <a name="frontends" />
 
 #### Frontends
+
+TCP keepalive packets can be sent from myxi to the connected client and server sockets.
+See: [gen_tcp](erlang.org/doc/man/gen_tcp.html)
+
+```erlang
+{tcp, [
+    {keepalive, true},
+    {max_connections, 1024}
+]}
+```
 
 A frontend consists of the configuration for an acceptor pool and listen socket,
 and a routing mechanism to determine which backend+balancer accepted connections will be directed to.
