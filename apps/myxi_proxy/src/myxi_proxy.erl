@@ -36,6 +36,9 @@ stop() ->
     myxi_application:terminate(?MODULE),
     init:stop().
 
+add_backend(Config) ->
+    ok.
+
 %%
 %% Callbacks
 %%
