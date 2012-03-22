@@ -12,7 +12,7 @@
 
 -behaviour(myxi_router).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% Callbacks
 -export([select_balancer/2]).

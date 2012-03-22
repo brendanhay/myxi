@@ -13,7 +13,7 @@
 -behaviour(gen_server).
 
 -include_lib("stdlib/include/ms_transform.hrl").
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% API
 -export([start_link/0,

@@ -8,20 +8,7 @@
 %% @doc
 %%
 
--module(myxi_roundrobin_balancer).
+-include_lib("myxi/include/myxi.hrl").
 
--behaviour(myxi_balancer).
+-define(APP, myxi_stats).
 
--include("include/myxi_proxy.hrl").
-
-%% Callbacks
--export([next/1]).
-
-%%
-%% Callbacks
-%%
-
--spec next([#endpoint{}]) -> {#endpoint{} | down, [#endpoint{}]}.
-%% @doc
-next([])    -> {down, []};
-next([H|T]) -> {H, T ++ [H]}.

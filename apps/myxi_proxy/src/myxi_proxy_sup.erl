@@ -12,7 +12,7 @@
 
 -behaviour(supervisor).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% API
 -export([start_link/0]).
@@ -41,7 +41,7 @@ init([]) ->
     random:seed(erlang:now()),
     Topology = {topology, {myxi_topology, start_link, []},
                 permanent, 2000, worker, [myxi_topology]},
-    Balancers = [balancer_spec(B) || B <- myxi_util:config(backends, myxi_proxy)],
+    Balancers = [balancer_spec(B) || B <- myxi_config:env(backends, myxi_proxy)],
     {ok, {{one_for_one, 3, 20}, [Topology|Balancers]}}.
 
 %%
@@ -49,21 +49,21 @@ init([]) ->
 %%
 
 balancer_spec({Name, Config}) ->
-    Mod = myxi_util:option(balancer, Config),
+    Mod = myxi_config:option(balancer, Config),
     Args = [Name,
             Mod,
             endpoints(Name, Config),
-            myxi_util:option(middleware, Config),
+            myxi_config:option(middleware, Config),
             random:uniform(?BALANCER_DELAY)],
     {Name, {myxi_balancer, start_link, Args},
      permanent, 2000, worker, [myxi_balancer]}.
 
 endpoints(Name, Config) ->
-    [endpoint(Name, N) || N <- myxi_util:option(nodes, Config)].
+    [endpoint(Name, N) || N <- myxi_config:option(nodes, Config)].
 
 endpoint(Name, Options) ->
-    Node = myxi_util:option(node, Options),
-    Addr = {myxi_util:hostname(Node), myxi_util:option(port, Options)},
+    Node = myxi_config:option(node, Options),
+    Addr = {myxi_net:hostname(Node), myxi_config:option(port, Options)},
     #endpoint{node    = Node,
               backend = Name,
               address = Addr}.

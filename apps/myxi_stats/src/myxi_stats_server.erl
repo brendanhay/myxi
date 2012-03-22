@@ -12,7 +12,7 @@
 
 -behaviour(gen_server).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_stats.hrl").
 
 %% API
 -export([start_link/2,
@@ -67,7 +67,7 @@ call(Msg) -> gen_server:call(?MODULE, Msg).
 init({Ns, Url}) ->
     lager:info("STATS-INIT"),
     process_flag(trap_exit, true),
-    {Host, Port} = myxi_util:split_host(Url, 8125),
+    {Host, Port} = myxi_net:parse(Url, 8125),
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 

@@ -10,7 +10,7 @@
 
 -module(myxi_backend).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% API
 -export([start_link/3]).
@@ -81,7 +81,7 @@ connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
 connect({Ip, Port}, Retries) ->
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
-        ++ myxi_util:config(tcp),
+        ++ myxi_config:env(tcp, ?APP),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;

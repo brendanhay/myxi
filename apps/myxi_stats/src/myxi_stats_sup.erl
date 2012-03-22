@@ -12,7 +12,7 @@
 
 -behaviour(supervisor).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_stats.hrl").
 
 %% API
 -export([start_link/0]).
@@ -46,6 +46,6 @@ init([]) ->
 -spec server_args() -> [string()].
 %% @private
 server_args() ->
-    Config = myxi_util:config(statsd, myxi_stats),
-    [myxi_util:option(namespace, Config),
-     myxi_util:os_env(myxi_util:option(url, Config), "localhost:8126")].
+    Config = myxi_config:env(statsd, myxi_stats),
+    [myxi_config:option(namespace, Config),
+     myxi_os:env(myxi_config:option(url, Config), "localhost:8126")].

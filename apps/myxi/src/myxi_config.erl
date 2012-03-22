@@ -16,7 +16,9 @@
 
 %% API
 -export([start_link/0,
-         load/1]).
+         load/1,
+         env/2,
+         option/2]).
 
 %% Callbacks
 -export([init/1,
@@ -42,6 +44,26 @@ start_link() ->
 -spec load([#config{}]) -> ok.
 %% @doc
 load(Tables) -> ok.
+
+-spec env(atom(), atom()) -> any().
+%% @doc
+env(Key, App) ->
+    case application:load(App) of
+        ok              -> ok;
+        {error, _Error} -> ok
+    end,
+    case application:get_env(App, Key) of
+        undefined   -> error({config_not_found, Key});
+        {ok, Value} -> Value
+    end.
+
+-spec option(ip | atom(), options()) ->  inet:ip_address() | any().
+%% @doc
+option(ip, Opts) ->
+    {ok, Ip} = inet:getaddr(lookup_option(ip, Opts), inet),
+    Ip;
+option(Key, Opts) ->
+    lookup_option(Key, Opts).
 
 %%
 %% Callbacks
@@ -82,3 +104,9 @@ cast(Msg) -> gen_server:cast(?MODULE, Msg).
 -spec call(message()) -> ok.
 %% @private
 call(Msg) -> gen_server:call(?MODULE, Msg).
+
+-spec lookup_option(atom(), options()) -> any().
+%% @private
+lookup_option(Key, Opts) ->
+    {Key, Value} = lists:keyfind(Key, 1, Opts),
+    Value.

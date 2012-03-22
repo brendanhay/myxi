@@ -12,7 +12,7 @@
 
 -behaviour(myxi_application).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% API
 -export([start/0,
@@ -54,19 +54,19 @@ config() -> [].
 
 -spec start_listeners() -> ok.
 %% @private
-start_listeners() -> lists:foreach(fun listener/1, myxi_util:config(frontends)).
+start_listeners() -> lists:foreach(fun listener/1, myxi_config:env(frontends, ?APP)).
 
 -spec listener(frontend()) -> {ok, pid()}.
 %% @private
 listener(Config) ->
     Tcp = tcp_options(Config),
-    lager:info("LISTEN ~s", [myxi_util:format_ip(Tcp)]),
-    cowboy:start_listener(amqp_listener, myxi_util:option(max, Config),
+    lager:info("LISTEN ~s", [myxi_net:format_ip(Tcp)]),
+    cowboy:start_listener(amqp_listener, myxi_config:option(max, Config),
                           cowboy_tcp_transport, Tcp,
                           myxi_connection, Config).
 
 -spec tcp_options(frontend()) -> [proplists:property()].
 %% @private
 tcp_options(Config) ->
-    [{ip, myxi_util:option(ip, Config)},
-     {port, myxi_util:option(port, Config)}|myxi_util:config(tcp)].
+    [{ip, myxi_config:option(ip, Config)},
+     {port, myxi_config:option(port, Config)}|myxi_config:env(tcp, ?APP)].

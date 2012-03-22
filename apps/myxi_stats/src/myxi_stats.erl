@@ -12,7 +12,7 @@
 
 -behaviour(myxi_application).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_stats.hrl").
 
 %% API
 -export([connect/2,

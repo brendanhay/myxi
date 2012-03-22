@@ -10,7 +10,7 @@
 
 -module(myxi_frontend).
 
--include_lib("myxi/include/myxi.hrl").
+-include("include/myxi_proxy.hrl").
 
 %% API
 -export([start_link/2]).
@@ -288,6 +288,6 @@ channel_unframe(Current, Previous) ->
 -spec log(string() | atom(), #s{}) -> ok.
 %% @private
 log(Mode, #s{client = Client}) when is_port(Client) ->
-    lager:info("~s ~s -> ~p", [Mode, myxi_util:peername(Client), self()]);
+    lager:info("~s ~s -> ~p", [Mode, myxi_net:peername(Client), self()]);
 log(Mode, _) ->
     lager:info("~s", [Mode]).
