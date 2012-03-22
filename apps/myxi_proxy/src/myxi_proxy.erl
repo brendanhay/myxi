@@ -44,7 +44,7 @@ stop() ->
 %% @hidden
 start_link() ->
     Res = myxi_proxy_sup:start_link(),
-    {ok, _Pid} = myxi_listener:start_link(),
+    ok = myxi_listener:start_link(),
     Res.
 
 -spec config() -> [#config{}].
