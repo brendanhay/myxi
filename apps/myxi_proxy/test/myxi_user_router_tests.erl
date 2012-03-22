@@ -19,10 +19,10 @@
 auth_amqp_plain_test() ->
     ?EQC(?FORALL(
             {User, Backend},
-            {myxi_generators:safe_binary(), myxi_generators:safe_atom()},
+            {test_generators:safe_binary(), test_generators:safe_atom()},
             ?FORALL(
                Table,
-               myxi_generators:amqp_table({<<"LOGIN">>, longstr, User}),
+               test_generators:amqp_table({<<"LOGIN">>, longstr, User}),
                begin
                    Router = router(User, Backend),
                    Backend =:=
@@ -34,7 +34,7 @@ auth_amqp_plain_test() ->
 auth_plain_test() ->
     ?EQC(?FORALL(
             {User, Pwd, Backend},
-            {myxi_generators:safe_binary(), myxi_generators:safe_binary(), myxi_generators:safe_atom()},
+            {test_generators:safe_binary(), test_generators:safe_binary(), test_generators:safe_atom()},
             begin
                 Router = router(User, Backend),
                 Backend =:=

@@ -13,41 +13,9 @@
 -include("include/myxi_test.hrl").
 
 %%
-%% Fixtures
-%%
-
-%%
 %% Properties
 %%
 
 bin_test() ->
-    ?EQC(?FORALL(T, union([binary(), atom(), myxi_generators:word()]),
+    ?EQC(?FORALL(T, union([binary(), atom(), test_generators:word()]),
                  is_binary(myxi_util:bin(T)))).
-
-split_host_test_() ->
-    [{"Host with no port number returns default",
-      ?_EQC(?FORALL({H, D}, {myxi_generators:word(), atom()},
-                    {H, D} =:= myxi_net:parse(H, D)))},
-
-     {"Host with port returns port number",
-      ?_EQC(?FORALL({H, P}, {myxi_generators:word(), pos_integer()},
-                    begin
-                        Host = H ++ ":" ++ integer_to_list(P),
-                        {H, P} =:= myxi_net:parse(Host)
-                    end))}].
-
-os_env_test_() ->
-    {foreach,
-     fun() ->
-             meck:new(myxi_util, [passthrough]),
-             meck:expect(myxi_util, os_env, 1, false),
-             [myxi_util]
-     end,
-     fun meck:unload/1,
-     [{"String returns same string",
-       ?_EQC(?FORALL({K, D}, {myxi_generators:word(), any()},
-                     K =:= myxi_os:env(K, D)))},
-
-      {"Non-existing variable returns default",
-       ?_EQC(?FORALL({K, D}, {myxi_generators:safe_atom(), any()},
-                     D =:= myxi_os:env(K, D)))}]}.

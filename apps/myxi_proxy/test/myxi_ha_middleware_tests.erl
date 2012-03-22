@@ -33,7 +33,7 @@ add_ha_queue_arguments_test() ->
 %%
 
 other_amqp_methods_unmodified_test() ->
-    ?EQC(?FORALL(M, myxi_generators:amqp_methods_except(#'queue.declare'{}),
+    ?EQC(?FORALL(M, test_generators:amqp_methods_except(#'queue.declare'{}),
                  begin
                      Expected = #mware{method = M},
                      Expected =:= myxi_ha_middleware:call(Expected)

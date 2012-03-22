@@ -40,7 +40,7 @@ add_topology_verify_callback_test() ->
 %%
 
 other_amqp_methods_unmodified_test() ->
-    ?EQC(?FORALL(M, myxi_generators:amqp_methods_except(#'exchange.declare'{}),
+    ?EQC(?FORALL(M, test_generators:amqp_methods_except(#'exchange.declare'{}),
                  begin
                      Expected = #mware{method = M},
                      Expected =:= myxi_topology_middleware:call(Expected)

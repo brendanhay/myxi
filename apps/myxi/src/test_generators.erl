@@ -8,7 +8,7 @@
 %% @doc
 %%
 
--module(myxi_generators).
+-module(test_generators).
 
 -include("include/myxi_test.hrl").
 

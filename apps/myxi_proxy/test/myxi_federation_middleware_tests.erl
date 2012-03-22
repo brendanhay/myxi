@@ -67,7 +67,7 @@ add_federation_callback() ->
 %%
 
 other_amqp_methods_unmodified_test() ->
-    ?EQC(?FORALL(M, myxi_generators:amqp_methods_except(#'queue.bind'{}),
+    ?EQC(?FORALL(M, test_generators:amqp_methods_except(#'queue.bind'{}),
                  begin
                      Expected = #mware{method = M},
                      Expected =:= myxi_federation_middleware:call(Expected)
