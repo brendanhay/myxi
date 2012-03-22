@@ -31,7 +31,7 @@
 -spec start_link() -> {ok, pid()} | ignore | {error, _}.
 %% @doc
 start_link() ->
-    case supervisor:start_link({local, ?MODULE}, ?MODULE, []) of
+    case supervisor2:start_link({local, ?MODULE}, ?MODULE, []) of
         {ok, Pid} -> {start_balancers(Pid), Pid};
         Error     -> Error
     end.
