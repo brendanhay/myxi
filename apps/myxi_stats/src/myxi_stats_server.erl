@@ -16,8 +16,7 @@
 
 %% API
 -export([start_link/2,
-         cast/1,
-         call/1]).
+         cast/1]).
 
 %% Callbacks
 -export([init/1,
@@ -28,18 +27,13 @@
          code_change/3]).
 
 -type message() :: {connect, pid(), inet:socket(), erlang:timestamp()} |
-                   {establish, pid(), node()} |
+                   {establish, pid(), #endpoint{}} |
                    {counter, atom(), pos_integer()}.
 
 -record(s, {sock               :: gen_udp:socket(),
             host = "localhost" :: string(),
             port = 8126        :: inet:port_number(),
             ns = ""            :: string()}).
-
--record(r, {conn               :: pid(),
-            client             :: inet:socket(),
-            server = none      :: node() | none,
-            started            :: erlang:timestamp()}).
 
 %%
 %% API
@@ -54,10 +48,6 @@ start_link(Ns, Url) ->
 %% @doc
 cast(Msg) -> gen_server:cast(?MODULE, Msg).
 
--spec call(message()) -> ok.
-%% @doc
-call(Msg) -> gen_server:call(?MODULE, Msg).
-
 %%
 %% Callbacks
 %%
@@ -71,45 +61,20 @@ init({Ns, Url}) ->
     {ok, Sock} = gen_udp:open(0, [binary]),
     {ok, #s{sock = Sock, host = Host, port = Port, ns = Ns}}.
 
--spec handle_call(connections, _, #s{}) -> {reply, ok, #s{}}.
+-spec handle_call(message(), _, #s{}) -> {reply, ok, #s{}}.
 %% @hidden
-handle_call(connections, _From, State) ->
-    Head = {?PROP('_'), '_', '_'},
-    Results = gproc:select([{Head, [], ['$$']}]),
-    Conns = [{P, elapsed(T), S} || [?PROP(P), _, #r{server = S, started = T}] <- Results],
-    {reply, Conns, State}.
+handle_call(_Msg, _From, State) -> {reply, ok, State}.
 
 -spec handle_cast(message(), #s{}) -> {noreply, #s{}}.
-%% listener creates a myxi_connection
-handle_cast({connect, Conn, Client, Started}, State) ->
-    true = gproc:reg(?PROP(Conn), #r{client = Client, started = Started}),
-    monitor(process, Conn),
-    stat(State, counter, connect, 1),
-    {noreply, State};
-
-%% connection to backend established
-handle_cast({establish, Conn, Server}, State) ->
-    Record = gproc:get_value(?PROP(Conn)),
-    true = gproc:set_value(?PROP(Conn), Record#r{server = Server}),
-    {noreply, State};
-
-%% miscellaneous counter increment
-handle_cast({counter, Stat, Step}, State) ->
-    stat(State, counter, Stat, Step),
+%% @hidden Send counter/timer
+handle_cast({Type, Bucket, N}, State) ->
+    lager:info("STAT ~p", [Bucket]),
+    ok = stat(State, Type, Bucket, N),
     {noreply, State}.
 
--spec handle_info({'DOWN', _, process, _, _}, #s{}) -> {noreply, #s{}}.
-%% @hidden myxi_connection terminates
-handle_info({'DOWN', _Ref, process, Conn, Reason}, State) ->
-    Record = gproc:get_value(?PROP(Conn)),
-    true = gproc:unreg(?PROP(Conn)),
-    Status = case Reason of
-                 normal -> disconnect.soft;
-                 _Other -> disconnect.hard
-             end,
-    stat(State, timer, duration, elapsed(Record#r.started)),
-    stat(State, counter, Status, 1),
-    {noreply, State}.
+-spec handle_info(_Info, #s{}) -> {noreply, #s{}}.
+%% @hidden
+handle_info(_Info, State) -> {noreply, State}.
 
 -spec terminate(_, #s{}) -> ok.
 %% @hidden
@@ -124,10 +89,6 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %%
 %% Private
 %%
-
--spec elapsed(erlang:timestamp()) -> non_neg_integer().
-%% @private Get the difference in milliseconds now and a timestamp
-elapsed(T) -> trunc(timer:now_diff(now(), T) / 1000).
 
 -spec stat(#s{}, counter | timer, string() | atom(), pos_integer(), float()) -> ok.
 %% @private Create a statistic entry with a sample rate
@@ -152,7 +113,7 @@ send(#s{sock = Sock, host = Host, port = Port, ns = Ns}, Format, Args) ->
     %% iolist_to_bin even though gen_...:send variants accept deep iolists,
     %% since it makes logging and testing easier
     Msg = iolist_to_binary(io_lib:format("~s." ++ Format, [Ns|Args])),
-    lager:debug("STAT ~p", [Msg]),
+    lager:notice("STAT ~p", [Msg]),
     case gen_udp:send(Sock, Host, Port, Msg) of
         _Any -> ok
     end.

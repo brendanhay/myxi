@@ -38,8 +38,7 @@
 
 -spec start_link() -> ignore | {error, _} | {ok, pid()}.
 %% @doc Start the config process
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 -spec load([#config{}]) -> ok.
 %% @doc
@@ -97,13 +96,13 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
--spec cast(message()) -> ok.
-%% @private
-cast(Msg) -> gen_server:cast(?MODULE, Msg).
-
 -spec call(message()) -> ok.
 %% @private
 call(Msg) -> gen_server:call(?MODULE, Msg).
+
+-spec cast(message()) -> ok.
+%% @private
+cast(Msg) -> gen_server:cast(?MODULE, Msg).
 
 -spec lookup_option(atom(), options()) -> any().
 %% @private

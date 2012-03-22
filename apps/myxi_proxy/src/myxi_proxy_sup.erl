@@ -35,8 +35,10 @@ start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 -spec init([]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init([]) ->
-    TopologyStore = {topology, {myxi_topology, start_link, []},
-                     permanent, 2000, worker, [myxi_topology]},
+    Registry = {registry, {myxi_registry, start_link, []},
+                permanent, 2000, worker, [myxi_registry]},
+    Topology = {topology, {myxi_topology, start_link, []},
+                permanent, 2000, worker, [myxi_topology]},
     BalancerSup = {balancer_sup, {myxi_balancer_sup, start_link, []},
                    permanent, 2000, worker, [myxi_balancer_sup]},
-    {ok, {{one_for_one, 3, 20}, [TopologyStore, BalancerSup]}}.
+    {ok, {{one_for_one, 3, 20}, [Registry, Topology, BalancerSup]}}.

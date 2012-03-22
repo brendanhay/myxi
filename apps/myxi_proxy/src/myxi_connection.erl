@@ -86,7 +86,7 @@ forward(Conn, Raw, Channel, Method, Protocol) ->
 %% @hidden
 init({Listener, Client, Config}) ->
     process_flag(trap_exit, true),
-    myxi_stats:connect(self(), Client),
+    ok = myxi_registry:add_connection(Client),
     {ok, accepting, #s{router   = myxi_router:new(Config),
                        listener = Listener,
                        client   = Client}}.
@@ -188,7 +188,7 @@ start_backend(Endpoint = #endpoint{address = Addr},
     %% Start a backend, replaying the previous client data to the server
     case myxi_backend:start_link(self(), Addr, Replay) of
         {ok, Pid, Sock} ->
-            ok = myxi_stats:establish(self(), Endpoint),
+            ok = myxi_registry:establish_connection(Endpoint),
             %% Create a fun composed of all available middleware
             Composed = myxi_middleware:wrap(Endpoint, Protocol, MW),
             State#s{backend = Pid, server = Sock, mware = Composed};

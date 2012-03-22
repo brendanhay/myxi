@@ -79,6 +79,7 @@ init({State, Delay}) ->
     %% Notify topology of new endpoints
     myxi_topology:add_endpoints(State#s.up),
     init_timers(Delay),
+    ok = myxi_registry:add_balancer(State#s.name),
     {ok, State}.
 
 -spec handle_call(next, {pid(), _}, #s{}) -> {reply, next(), #s{}}.
@@ -142,9 +143,9 @@ health_check(?DOWN, State = #s{down = []}) ->
     State;
 health_check(?DOWN, State = #s{mod = Mod, name = Name, up = Up, down = Down}) ->
     {AddUp, NewDown} = check(Down),
-    lager:info("BALANCE-DOWN ~s:~s ~p", [Name, Mod, node_names(NewDown)]),
+    lager:info("NODE-DOWN ~s:~s ~p", [Name, Mod, node_names(NewDown)]),
     %% Add endpoints for backends that have just come up
-    myxi_topology:add_endpoints(AddUp),
+    ok = myxi_topology:add_endpoints(AddUp),
     State#s{up = Up ++ AddUp, down = NewDown}.
 
 -spec check([#endpoint{}]) -> {[#endpoint{}], [#endpoint{}]}.

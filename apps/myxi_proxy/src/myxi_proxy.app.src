@@ -16,8 +16,7 @@
         %% tcp
         %% Global options appended to gen_tcp:listen/connect calls
         {tcp, [
-            {keepalive, true},
-            {max_connections, 1024}
+            {keepalive, true}
         ]},
 
         %% frontends

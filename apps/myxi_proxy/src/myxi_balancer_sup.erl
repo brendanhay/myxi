@@ -17,7 +17,8 @@
 -include("include/myxi_proxy.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/0,
+         add_backend/2]).
 
 %% Callbacks
 -export([init/1]).
@@ -35,6 +36,16 @@ start_link() ->
         {ok, Pid} -> {start_balancers(Pid), Pid};
         Error     -> Error
     end.
+
+-spec add_backend(pid(), backend()) -> {ok, pid} | {error, _}.
+%% @doc
+add_backend(Pid, {Name, Config}) ->
+    Args = [Name,
+            myxi_config:option(balancer, Config),
+            endpoints(Name, Config),
+            myxi_config:option(middleware, Config),
+            random:uniform(?BALANCER_DELAY)],
+    supervisor2:start_child(Pid, Args).
 
 %%
 %% Callbacks
@@ -56,18 +67,8 @@ init([]) ->
 start_balancers(Pid) ->
     %% Used to ensure balancer check starts are delayed
     random:seed(erlang:now()),
-    [start(Pid, C) || C <- myxi_config:env(backends, myxi_proxy)],
+    [add_backend(Pid, B) || B <- myxi_config:env(backends, myxi_proxy)],
     ok.
-
--spec start(pid(), {atom(), options()}) -> {ok, pid} | {error, _}.
-%% @private
-start(Pid, {Name, Config}) ->
-    Args = [Name,
-            myxi_config:option(balancer, Config),
-            endpoints(Name, Config),
-            myxi_config:option(middleware, Config),
-            random:uniform(?BALANCER_DELAY)],
-    supervisor2:start_child(Pid, Args).
 
 -spec endpoints(atom(), backend()) -> [#endpoint{}].
 %% @private

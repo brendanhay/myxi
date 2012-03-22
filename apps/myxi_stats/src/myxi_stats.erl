@@ -15,10 +15,8 @@
 -include("include/myxi_stats.hrl").
 
 %% API
--export([connect/2,
-         establish/2,
-         counter/2,
-         connections/0]).
+-export([counter/2,
+         timer/2]).
 
 %% Callbacks
 -export([start_link/0,
@@ -28,25 +26,13 @@
 %% API
 %%
 
--spec connect(pid(), inet:socket()) -> ok.
+-spec counter(atom() | string(), pos_integer()) -> ok.
 %% @doc
-connect(Conn, Client) ->
-    myxi_stats_server:cast({connect, Conn, Client, now()}).
+counter(Bucket, Step) -> myxi_stats_server:cast({counter, Bucket, Step}).
 
--spec establish(pid(), #endpoint{}) -> ok.
+-spec timer(atom() | string(), pos_integer()) -> ok.
 %% @doc
-establish(Conn, #endpoint{node = Node}) ->
-    myxi_stats_server:cast({establish, Conn, Node}).
-
--spec counter(atom(), pos_integer()) -> ok.
-%% @doc
-counter(Stat, Step) ->
-    myxi_stats_server:cast({counter, Stat, Step}).
-
--spec connections() -> [{pid(), non_neg_integer()}].
-%% @doc
-connections() ->
-    myxi_stats_server:call(connections).
+timer(Bucket, Ms) -> myxi_stats_server:cast({timer, Bucket, Ms}).
 
 %%
 %% Callbacks

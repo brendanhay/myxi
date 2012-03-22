@@ -52,6 +52,8 @@ stop() -> gen_server:cast(?MODULE, stop).
 
 -spec add_endpoints([#endpoint{}]) -> ok.
 %% @doc
+add_endpoints([]) ->
+    ok;
 add_endpoints(Endpoints) ->
     Exchanges = lists:flatten([list_exchanges(E) || E <- Endpoints]),
     lager:info("TOPOLOGY-INS ~p", [Exchanges]),
