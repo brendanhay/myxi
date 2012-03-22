@@ -118,7 +118,7 @@ and a routing mechanism to determine which backend+balancer accepted connections
          [{user, <<"rabbit">>}, {backend, rabbit}],
          [{user, <<"chinchilla">>}, {backend, chinchilla}]
      ]}]
-]},
+]}
 ```
 
 `acceptors` is the initial number of processes accepting connections on the specific listen address.
