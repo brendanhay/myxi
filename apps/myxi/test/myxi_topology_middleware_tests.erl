@@ -10,7 +10,7 @@
 
 -module(myxi_topology_middleware_tests).
 
--include_lib("myxi/include/myxi_test.hrl").
+-include("/include/myxi_test.hrl").
 
 %%
 %% Units

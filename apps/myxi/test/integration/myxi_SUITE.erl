@@ -1,6 +1,6 @@
 -module(myxi_SUITE).
 
--include_lib("myxi/include/myxi_common_test.hrl").
+-include("/include/myxi_common_test.hrl").
 
 %%
 %% Callbacks
