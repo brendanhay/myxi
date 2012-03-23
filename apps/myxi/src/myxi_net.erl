@@ -62,8 +62,7 @@ hostname(Node) ->
 %% @doc
 parse(Host) -> parse(Host, undefined).
 
--spec parse(string(), T::any()) -> {nonempty_string(), T::any() |
-                                    inet:port_number()}.
+-spec parse(string(), inet:port_number()) -> {nonempty_string(), inet:port_number()}.
 %% @doc
 parse(Host, Default) ->
     case string:tokens(Host, ":") of

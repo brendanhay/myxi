@@ -27,6 +27,9 @@
 %% Behaviour
 %%
 
+
+ROLLBACK TO SEEPERATE APPS SO THE CONFIG APP IS ENSURED TO BE LOADED FIRST!
+
 -callback start_link() -> {ok, pid()} | {error, _}.
 -callback config()     -> [#config{}].
 
