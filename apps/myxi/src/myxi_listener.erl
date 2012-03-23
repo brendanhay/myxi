@@ -10,7 +10,7 @@
 
 -module(myxi_listener).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/0]).
@@ -21,7 +21,7 @@
 
 -spec start_link() -> ok.
 %% @doc
-start_link() -> lists:foreach(fun listener/1, myxi_config:env(frontends, ?APP)).
+start_link() -> lists:foreach(fun listener/1, myxi_config:env(frontends)).
 
 %%
 %% API
@@ -40,4 +40,4 @@ listener(Config) ->
 %% @private
 tcp_options(Config) ->
     [{ip, myxi_config:option(ip, Config)},
-     {port, myxi_config:option(port, Config)}|myxi_config:env(tcp, ?APP)].
+     {port, myxi_config:option(port, Config)}|myxi_config:env(tcp)].

@@ -10,7 +10,7 @@
 
 -module(myxi_backend).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/3]).
@@ -80,8 +80,9 @@ replay(Server, [Payload, Header, Handshake]) ->
 connect({Ip, Port}, 0) ->
     exit({backend_timeout, Ip, Port});
 connect({Ip, Port}, Retries) ->
+    %% TODO: Make this a safe merge
     Tcp = [binary, {reuseaddr, true}, {active, false}, {packet, raw}]
-        ++ myxi_config:env(tcp, ?APP),
+        ++ myxi_config:env(tcp),
     case gen_tcp:connect(Ip, Port, Tcp) of
         {ok, Server} ->
             Server;
@@ -90,3 +91,4 @@ connect({Ip, Port}, Retries) ->
             timer:sleep(500),
             connect({Ip, Port}, Retries - 1)
     end.
+

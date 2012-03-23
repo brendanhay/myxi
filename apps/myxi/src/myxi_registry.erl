@@ -10,7 +10,7 @@
 
 -module(myxi_registry).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 -behaviour(gen_server).
 
@@ -114,7 +114,7 @@ handle_call(_Msg, _From, State) -> {reply, ok, State}.
 handle_cast({connect, Pid, Client, Started}, State) ->
     true = gproc:reg(?CONN(Pid), #conn{client = Client, started = Started}),
     monitor(process, Pid),
-    ok = myxi_stats:counter(connect, 1),
+    ok = stetson:counter(connect, 1),
     {noreply, State};
 
 %% connection to backend established
@@ -132,8 +132,8 @@ handle_info({'DOWN', _Ref, process, Pid, Reason}, State) ->
                  normal -> disconnect.soft;
                  _Other -> disconnect.hard
              end,
-    myxi_stats:timer(duration, elapsed(Conn#conn.started)),
-    myxi_stats:counter(Status, 1),
+    stetson:timer(duration, elapsed(Conn#conn.started)),
+    stetson:counter(Status, 1),
     {noreply, State}.
 
 -spec terminate(_, #s{}) -> ok.

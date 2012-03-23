@@ -13,7 +13,7 @@
 -behaviour(gen_fsm).
 -behaviour(cowboy_protocol).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/4,

@@ -14,7 +14,7 @@
 %% per the shudown component of their child_spec
 -behaviour(supervisor2).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([start_link/0,
@@ -67,7 +67,7 @@ init([]) ->
 start_balancers(Pid) ->
     %% Used to ensure balancer check starts are delayed
     random:seed(erlang:now()),
-    [add_backend(Pid, B) || B <- myxi_config:env(backends, myxi_proxy)],
+    [add_backend(Pid, B) || B <- myxi_config:env(backends)],
     ok.
 
 -spec endpoints(atom(), backend()) -> [#endpoint{}].

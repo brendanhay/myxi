@@ -10,7 +10,7 @@
 
 -module(myxi_router).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% API
 -export([new/1,

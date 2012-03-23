@@ -12,7 +12,7 @@
 
 -behaviour(myxi_middleware).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([call/1]).

@@ -12,7 +12,7 @@
 
 -behaviour(myxi_balancer).
 
--include("include/myxi_proxy.hrl").
+-include("include/myxi.hrl").
 
 %% Callbacks
 -export([next/1]).
