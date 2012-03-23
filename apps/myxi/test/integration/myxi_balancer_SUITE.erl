@@ -10,7 +10,7 @@
 
 -module(myxi_balancer_SUITE).
 
--include("/include/myxi_common_test.hrl").
+-include("myxi_common_test.hrl").
 
 -define(BALANCER, myxi_dummy_balancer).
 -define(UP,       check_up).

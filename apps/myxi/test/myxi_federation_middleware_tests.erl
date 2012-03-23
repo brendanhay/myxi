@@ -10,7 +10,7 @@
 
 -module(myxi_federation_middleware_tests).
 
--include("/include/myxi_test.hrl").
+-include("include/myxi_test.hrl").
 
 -define(NODE,    node()).
 -define(BACKEND, myxi).

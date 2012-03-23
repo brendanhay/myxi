@@ -10,7 +10,7 @@
 
 -module(myxi_user_router_tests).
 
--include("/include/myxi_test.hrl").
+-include("include/myxi_test.hrl").
 
 %%
 %% Properties

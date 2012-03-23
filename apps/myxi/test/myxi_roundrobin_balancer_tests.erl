@@ -10,7 +10,7 @@
 
 -module(myxi_roundrobin_balancer_tests).
 
--include("/include/myxi_test.hrl").
+-include("include/myxi_test.hrl").
 
 %%
 %% Units

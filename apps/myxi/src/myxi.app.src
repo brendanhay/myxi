@@ -1,20 +1,19 @@
 {application, myxi, [
-    {description, "Myxi Proxy"},
+    {description, "Myxi"},
     {vsn, "0.1.0"},
     {registered, []},
     {applications, [
         kernel,
         stdlib,
         lager,
+        gproc,
         cowboy,
-        myxi,
-        myxi_stats
+        stetson
     ]},
-    {mod, []},
+    {mod, {myxi, []}},
     {env, [
 
-        %% tcp
-        %% Global options appended to gen_tcp:listen/connect calls
+        %% appended to gen_tcp:listen/connect calls
         {tcp, [
             {keepalive, true}
         ]},

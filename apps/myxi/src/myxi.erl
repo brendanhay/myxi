@@ -55,10 +55,9 @@ stop(_Args) -> ok.
 %% Private
 %%
 
-
 -spec start(atom()) -> ok.
 %% @doc
-start(App) -> ensure_started(App, application:start(App)).
+start(App) -> ensure_started(App, application:start(App, permanent)).
 
 -spec ensure_started(atom(), ok | {error, {already_started, atom()} |
                                    {not_started, atom()}}) -> ok.

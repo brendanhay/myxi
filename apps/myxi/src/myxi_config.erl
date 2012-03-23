@@ -24,21 +24,21 @@
 -spec env(atom()) -> any().
 %% @doc
 env(Key) ->
-    application:load(?MODULE),
-    case application:get_env(?MODULE, Key) of
+    application:load(myxi),
+    case application:get_env(myxi, Key) of
         undefined   -> error({config_not_found, Key});
         {ok, Value} -> os(Value)
     end.
 
 -spec os(atom() | string()) -> string().
 %% @doc
-os(Value) when is_atom(Value) ->
-    case os:getenv(atom_to_list(Value)) of
-        false -> error({env_not_set, Value});
+os(Key) when is_atom(Key) ->
+    case os:getenv(atom_to_list(Key)) of
+        false -> error({env_not_set, Key});
         Env   -> Env
     end;
-os(Value) ->
-    Value.
+os(Key) ->
+    Key.
 
 -spec option(ip | atom(), options()) ->  inet:ip_address() | any().
 %% @doc

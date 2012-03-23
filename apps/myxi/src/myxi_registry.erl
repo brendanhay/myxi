@@ -63,8 +63,7 @@ start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 %% @doc
 add_balancer(Name) ->
     %% Register aggregate counter?
-    true = gproc:reg(?BAL, Name),
-    ok.
+    if_started(fun() -> true = gproc:reg(?BAL, Name), ok end).
 
 -spec add_connection(inet:socket()) -> ok.
 %% @doc
@@ -83,17 +82,25 @@ establish_connection(Endpoint) ->
 -spec balancers() -> [{pid(), atom()}].
 %% @doc
 balancers() ->
-    Head = {?BAL, '_', '_'},
-    Results = gproc:select([{Head, [], ['$$']}]),
-    [{P, B} || [?BAL, P, B] <- Results].
+    if_started(
+      fun() ->
+              Head = {?BAL, '_', '_'},
+              Results = gproc:select([{Head, [], ['$$']}]),
+              [{P, B} || [?BAL, P, B] <- Results]
+      end,
+      []).
 
 -spec connections() -> [{pid(), string(), non_neg_integer(), #endpoint{}}].
 %% @doc
 connections() ->
-    Head = {?CONN('_'), '_', '_'},
-    Results = gproc:select([{Head, [], ['$$']}]),
-    [{P, myxi_net:peername(C), elapsed(T), S}
-     || [?CONN(P), _, #conn{client = C, server = S, started = T}] <- Results].
+    if_started(
+      fun() ->
+              Head = {?CONN('_'), '_', '_'},
+              Results = gproc:select([{Head, [], ['$$']}]),
+              [{P, myxi_net:peername(C), elapsed(T), S}
+               || [?CONN(P), _, #conn{client = C, server = S, started = T}] <- Results]
+      end,
+      []).
 
 %%
 %% Callbacks
@@ -148,13 +155,22 @@ code_change(_OldVsn, State, _Extra) -> {ok, State}.
 %% Private
 %%
 
-%% -spec call(message()) -> ok.
-%% %% @private
-%% call(Msg) -> gen_server:call(?MODULE, Msg).
+-spec if_started(fun()) -> ok.
+%% @private
+if_started(Fun) -> if_started(Fun, ok).
+
+-spec if_started(fun(), any()) -> any().
+%% @private
+if_started(Fun, Default) ->
+    case whereis(?MODULE) of
+        undefined        -> Default;
+        P when is_pid(P) -> Fun()
+    end.
 
 -spec cast(message()) -> ok.
 %% @private
-cast(Msg) -> gen_server:cast(?MODULE, Msg).
+cast(Msg) ->
+    if_started(fun() -> gen_server:cast(?MODULE, Msg) end).
 
 -spec elapsed(erlang:timestamp()) -> non_neg_integer().
 %% @private Get the difference in milliseconds now and a timestamp
