@@ -41,6 +41,6 @@ init([]) ->
                 permanent, 2000, worker, [myxi_registry]},
     Topology = {topology, {myxi_topology, start_link, []},
                 permanent, 2000, worker, [myxi_topology]},
-    BalancerSup = {balancer_sup, {myxi_balancer_sup, start_link, []},
-                   permanent, 2000, worker, [myxi_balancer_sup]},
-    {ok, {{one_for_all, 3, 20}, [Registry, Topology, BalancerSup]}}.
+    Balancers = {balancer_sup, {myxi_balancer_sup, start_link, []},
+                 permanent, 2000, worker, [myxi_balancer_sup]},
+    {ok, {{one_for_all, 3, 20}, [Registry, Topology, Balancers]}}.
