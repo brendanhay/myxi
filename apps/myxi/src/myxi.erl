@@ -42,10 +42,7 @@ stop() ->
 
 -spec start(normal, _) -> {ok, pid()} | {error, _}.
 %% @hidden
-start(normal, _Args) ->
-    Res = myxi_sup:start_link(),
-    ok = myxi_listener:start_link(),
-    Res.
+start(normal, _Args) -> myxi_sup:start_link().
 
 -spec stop(_) -> ok.
 %% @hidden

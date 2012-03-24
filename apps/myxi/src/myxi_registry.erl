@@ -169,11 +169,8 @@ if_started(Fun, Default) ->
 
 -spec cast(message()) -> ok.
 %% @private
-cast(Msg) ->
-    if_started(fun() -> gen_server:cast(?MODULE, Msg) end).
+cast(Msg) -> if_started(fun() -> gen_server:cast(?MODULE, Msg) end).
 
 -spec elapsed(erlang:timestamp()) -> non_neg_integer().
 %% @private Get the difference in milliseconds now and a timestamp
 elapsed(T) -> trunc(timer:now_diff(now(), T) / 1000).
-
-

@@ -21,7 +21,9 @@
 
 -spec start_link() -> ok.
 %% @doc
-start_link() -> lists:foreach(fun listener/1, myxi_config:env(frontends)).
+start_link() ->
+    [link(P) || {ok, P} <- [listener(C) || C <- myxi_config:env(frontends)]],
+    ok.
 
 %%
 %% API
@@ -31,10 +33,17 @@ start_link() -> lists:foreach(fun listener/1, myxi_config:env(frontends)).
 %% @private
 listener(Config) ->
     Tcp = tcp_options(Config),
-    lager:info("LISTEN ~s", [myxi_net:format_ip(Tcp)]),
-    cowboy:start_listener(amqp_listener, myxi_config:option(acceptors, Config),
-                          cowboy_tcp_transport, Tcp,
-                          myxi_connection, Config).
+    Acceptors = myxi_config:option(acceptors, Config),
+    case cowboy:start_listener(amqp_listener, Acceptors,
+                               cowboy_tcp_transport, Tcp,
+                               myxi_connection, Config) of
+        {ok, Pid} ->
+            lager:info("LISTEN ~s", [myxi_net:format_ip(Tcp)]),
+            {ok, Pid};
+        Error ->
+            lager:error("LISTENER failed to start"),
+            exit(listener_start_failure)
+    end.
 
 -spec tcp_options(frontend()) -> [proplists:property()].
 %% @private

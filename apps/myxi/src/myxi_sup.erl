@@ -35,6 +35,8 @@ start_link() -> supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 -spec init([]) -> {ok, {{one_for_all, 3, 20}, [supervisor:child_spec()]}}.
 %% @hidden
 init([]) ->
+    %% Ensure the listeners are linked against the supervisor process
+    ok = myxi_listener:start_link(),
     Registry = {registry, {myxi_registry, start_link, []},
                 permanent, 2000, worker, [myxi_registry]},
     Topology = {topology, {myxi_topology, start_link, []},
